@@ -1,0 +1,19 @@
+{
+	"name": "steam-hour-booster",
+	"version": "1.0.0",
+	"description": "Steam Playtime Booster with 2FA support.",
+	"scripts": {
+		"start": "node src/hourBooster.js"
+	},
+	"keywords": [],
+	"author": "klorik and Valencitoh",
+	"license": "GNU GPLv3",
+	"dependencies": {
+		"easytimer.js": "^4.3.0",
+		"readline-sync": "^1.4.10",
+		"steam": "^1.4.1",
+		"steam-totp": "^2.1.1",
+		"steam-user": "^4.18.0"
+	},
+	"devDependencies": {}
+}
