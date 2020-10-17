@@ -26,7 +26,7 @@ This command should install **steam**, **steam-user**, **steam-totp**, **readlin
 ## Startup [Manual]
 ```bash
 # Start the booster 🎉
-npm run start
+$ npm run start
 ```
 
 ## Example of the config (accounts.js)
