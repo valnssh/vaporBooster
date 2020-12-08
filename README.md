@@ -2,7 +2,7 @@
 
 # Steam Hour Booster (2FA Support)
 
-Boost multiple account with this [**NodeJS**](https://nodejs.org/en/download/) Script with 2FA Support!  
+Boost multiple account with this [**NodeJS**](https://nodejs.org/en/download/) script with 2FA Support!  
 *(And it is not necessary to use the Shared Secret key)*
 
 ## Installation & Startup [Automatic mode for Windows]
