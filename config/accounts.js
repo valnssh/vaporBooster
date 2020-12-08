@@ -1,7 +1,7 @@
 var configsArray = [];
 var config;
 
-// 1st Account (You can boost many accounts as you want)
+// 1st Account (you can boost many accounts as you want)
 config = {};
 config.username = 'username'; // Account username
 config.password = 'password'; // Account password
@@ -15,7 +15,7 @@ config.receiveMessages = false; // Do you want to log the messages that you rece
 config.saveMessages = false; // Do you want to save the messages that you receive in a file? 
 configsArray.push(config);
 
-// 2nd account (You can boost many accounts as you want)
+// 2nd account (you can boost many accounts as you want)
 config = {};
 config.username = 'username'; // Account username
 config.password = 'password'; // Account password
