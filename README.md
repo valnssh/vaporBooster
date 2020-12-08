@@ -2,14 +2,14 @@
 
 # Steam Hour Booster (2FA Support)
 
-Boost multiple account with this [**NodeJS**](https://nodejs.org/en/download/) script with 2FA Support!  
-*(And it is not necessary to use the Shared Secret key)*
+Boost multiple account with this [**NodeJS**](https://nodejs.org/en/download/) script with 2FA support!  
+*(And it is not necessary to use the shared secret key)*
 
 ## Installation & Startup [Automatic mode for Windows]
 
 * [**Tutorial Video**](https://youtu.be/JNBsTL1XZUE)  
 	* You need to run «Installer.bat».  
-	* And for the Startup just run «HourBooster.bat».
+	* And for the startup just run «HourBooster.bat».
 
 ## Installation [Manual]
 ```bash
@@ -34,10 +34,10 @@ $ npm run start
 config = {};
 config.username = 'username'; // Account username
 config.password = 'password'; // Account password
-config.sharedSecret = ''; // Shared Secret (2FA only), leave it blank for Steam Guard Code
+config.sharedSecret = ''; // Shared secret (2FA only), leave it blank for steam guard code
 config.enableStatus = true; // Set it to false if you want to stay invisible
 config.gamesAndStatus = [
-	"Boosting Hours @ valencitoh.com", // Your custom Status
+	"Boosting Hours @ valencitoh.com", // Your custom status
 	730, 440, 570]; // IDs of the games, separated by comma
 config.replyMessage = ''; // Leave it blank for no reply message
 config.receiveMessages = false; // Do you want to log the messages that you receive in the terminal?
