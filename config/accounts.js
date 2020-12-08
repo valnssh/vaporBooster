@@ -5,10 +5,10 @@ var config;
 config = {};
 config.username = 'username'; // Account username
 config.password = 'password'; // Account password
-config.sharedSecret = ''; // Shared Secret (2FA only), leave it blank for Steam Guard Code
+config.sharedSecret = ''; // Shared secret (2FA only), leave it blank for steam guard code
 config.enableStatus = true; // Set it to false if you want to stay invisible
 config.gamesAndStatus = [
-	"Boosting Hours @ valencitoh.com", // Your custom Status
+	"Boosting Hours @ valencitoh.com", // Your custom status
 	730, 440, 570]; // IDs of the games, separated by comma
 config.replyMessage = ''; // Leave it blank for no reply message
 config.receiveMessages = false; // Do you want to log the messages that you receive in the terminal?
@@ -19,10 +19,10 @@ configsArray.push(config);
 config = {};
 config.username = 'username'; // Account username
 config.password = 'password'; // Account password
-config.sharedSecret = ''; // Shared Secret (2FA only), leave it blank for Steam Guard Code
+config.sharedSecret = ''; // Shared secret (2FA only), leave it blank for steam guard code
 config.enableStatus = true; // Set it to false if you want to stay invisible
 config.gamesAndStatus = [
-	"Boosting Hours @ valencitoh.com", // Your custom Status
+	"Boosting Hours @ valencitoh.com", // Your custom status
 	730, 440, 570]; // IDs of the games, separated by comma
 config.replyMessage = ''; // Leave it blank for no reply message
 config.receiveMessages = false; // Do you want to log the messages that you receive in the terminal?
