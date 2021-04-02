@@ -74,7 +74,7 @@ botFactory.buildBot = function (config) {
 	});
 
 	bot.on('friendMessage', function (steamID, message) {
-		if (bot.receiveMessages == true) {
+		if (bot.receiveMessages) {
 			console.log(`[${this.username}] Message from ${steamID}: ${message}\n`);
 		};
 		if (bot.saveMessages) {
