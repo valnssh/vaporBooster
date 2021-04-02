@@ -9,11 +9,11 @@
 	"author": "klorik and Valencitoh",
 	"license": "GNU GPLv3",
 	"dependencies": {
-		"easytimer.js": "^4.3.0",
+		"easytimer.js": "^4.3.4",
 		"readline-sync": "^1.4.10",
 		"steam": "^1.4.1",
 		"steam-totp": "^2.1.1",
-		"steam-user": "^4.18.0"
+		"steam-user": "^4.19.4"
 	},
 	"devDependencies": {}
 }
