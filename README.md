@@ -44,6 +44,3 @@ config.receiveMessages = false; // Do you want to log the messages that you rece
 config.saveMessages = false; // Do you want to save the messages that you receive in a file? 
 configsArray.push(config);
 ```
-
-### License
-[GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/)
