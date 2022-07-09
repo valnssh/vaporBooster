@@ -1,6 +1,6 @@
 -   #### This is a fork of [_the hour booster made by klorik._](https://www.unknowncheats.me/forum/cs-go-releases/201270-ez-steam-hours-booster-nodejs-steamguard-2fa.html)
 
-# Steam Hour Booster (2FA Support)
+# vaporBooster, a simple Steam hour booster with 2FA support
 
 Boost multiple account with this [**NodeJS**](https://nodejs.org/en/download/) script with 2FA support!  
 _(And it is not necessary to use the shared secret key)_
