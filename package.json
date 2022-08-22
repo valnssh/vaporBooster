@@ -6,8 +6,8 @@
 		"start": "node src/hourBooster.js"
 	},
 	"keywords": [],
-	"author": "klorik and Valencitoh",
-	"license": "GNU GPLv3",
+	"author": "klorik and valndev",
+	"license": "Unlicense",
 	"dependencies": {
 		"easytimer.js": "^4.5.3",
 		"readline-sync": "^1.4.10",
