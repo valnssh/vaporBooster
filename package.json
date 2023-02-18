@@ -1,6 +1,6 @@
 {
-	"name": "steam-hour-booster",
-	"version": "1.0.1",
+	"name": "vaporbooster",
+	"version": "1.0.2",
 	"description": "Steam Playtime Booster with 2FA support.",
 	"scripts": {
 		"start": "node src/hourBooster.js"
@@ -9,9 +9,9 @@
 	"author": "klorik and valndev",
 	"license": "Unlicense",
 	"dependencies": {
-		"easytimer.js": "^4.5.3",
+		"easytimer.js": "^4.5.4",
 		"readline-sync": "^1.4.10",
 		"steam-totp": "^2.1.2",
-		"steam-user": "^4.24.3"
+		"steam-user": "^4.27.0"
 	}
 }
