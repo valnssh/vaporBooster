@@ -1,9 +1,10 @@
 {
 	"name": "vaporbooster",
-	"version": "1.0.2",
-	"description": "Steam Playtime Booster with 2FA support.",
+	"version": "1.0.3",
+	"description": "Simple, fast and reliable hour booster for the Steam platform.",
+	"main": "src/accountHandler.js",
 	"scripts": {
-		"start": "node src/hourBooster.js"
+		"start": "node src/accountHandler.js"
 	},
 	"keywords": [],
 	"author": "klorik and valndev",
