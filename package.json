@@ -13,6 +13,6 @@
 		"easytimer.js": "^4.5.4",
 		"readline-sync": "^1.4.10",
 		"steam-totp": "^2.1.2",
-		"steam-user": "^4.28.6"
+		"steam-user": "^4.28.7"
 	}
 }
