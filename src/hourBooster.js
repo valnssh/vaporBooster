@@ -2,17 +2,28 @@ const { clock } = require('../config/global.js');
 const SteamUser = require('steam-user');
 const SteamTotp = require('steam-totp');
 const readlineSync = require('readline-sync');
+const jwtDecoder = require('jwt-decode');
 const fs = require('fs');
 const { Timer } = require('easytimer.js');
 const timer = new Timer();
+const commonProperties = {
+	rememberPassword: true,
+	machineName: 'vaporBooster',
+};
 var botFactory = {};
 
 botFactory.buildBot = function (config) {
 	var bot = new SteamUser({
-		promptSteamGuardCode: false,
 		dataDirectory: './accounts_data',
+		autoRelogin: true,
 		singleSentryfile: false,
 	});
+
+	var loginKeyPath = './accounts_data/loginKeys';
+	bot.loginKeyPath = `${loginKeyPath}/${config.username}.txt`;
+	if (!fs.existsSync(loginKeyPath)) {
+		fs.mkdirSync(loginKeyPath);
+	}
 
 	bot.username = config.username;
 	bot.password = config.password;
@@ -57,16 +68,50 @@ botFactory.buildBot = function (config) {
 
 	bot.on('error', function (err) {
 		console.log(`[${this.username}] ${err}\n`);
+		if (err.eresult === SteamUser.EResult.InvalidPassword) {
+			if (fs.existsSync(this.loginKeyPath)) {
+				fs.unlinkSync(this.loginKeyPath);
+			}
+		}
 		setTimeout(function () {
 			bot.doLogin();
 		}, 30 * 60 * 1000);
 	});
 
+	bot.on('loginKey', function (key) {
+		fs.writeFileSync(this.loginKeyPath, key);
+		console.log(`[${this.username}] Login key saved!\n`);
+	});
+
 	bot.doLogin = function () {
-		this.logOn({
-			accountName: this.username,
-			password: this.password,
-		});
+		var details;
+		if (fs.existsSync(this.loginKeyPath)) {
+			let loginKey = fs.readFileSync(this.loginKeyPath, {
+				encoding: 'utf8',
+				flag: 'r',
+			});
+
+			try {
+				jwtDecoder(loginKey);
+			} catch {
+				fs.unlinkSync(this.loginKeyPath);
+				bot.doLogin();
+				return;
+			}
+
+			details = {
+				...commonProperties,
+				accountName: this.loginKey,
+				loginKey,
+			};
+		} else {
+			details = {
+				...commonProperties,
+				accountName: this.username,
+				password: this.password,
+			};
+		}
+		this.logOn(details);
 	};
 
 	bot.on('steamGuard', function (domain, callback) {

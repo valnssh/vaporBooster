@@ -11,6 +11,7 @@
 	"license": "Unlicense",
 	"dependencies": {
 		"easytimer.js": "^4.5.4",
+		"jwt-decode": "^3.1.2",
 		"readline-sync": "^1.4.10",
 		"steam-totp": "^2.1.2",
 		"steam-user": "^4.28.8"
