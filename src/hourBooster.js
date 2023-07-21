@@ -13,16 +13,18 @@ const commonProperties = {
 var botFactory = {};
 
 botFactory.buildBot = function (config) {
+  var accountsPath = './accounts_data';
+  var loginKeysPath = './login_keys';
+
 	var bot = new SteamUser({
-		dataDirectory: './accounts_data',
+		dataDirectory: accountsPath,
 		autoRelogin: true,
 		singleSentryfile: false,
 	});
 
-	var loginKeyPath = './accounts_data/loginKeys';
-	bot.loginKeyPath = `${loginKeyPath}/${config.username}.txt`;
-	if (!fs.existsSync(loginKeyPath)) {
-		fs.mkdirSync(loginKeyPath);
+	bot.loginKeyPath = `${loginKeysPath}/${config.username}.txt`;
+	if (!fs.existsSync(loginKeysPath)) {
+		fs.mkdirSync(loginKeysPath);
 	}
 
 	bot.username = config.username;

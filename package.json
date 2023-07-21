@@ -1,6 +1,6 @@
 {
 	"name": "vaporbooster",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"description": "Simple, fast and reliable hour booster for the Steam platform.",
 	"main": "src/accountHandler.js",
 	"scripts": {
