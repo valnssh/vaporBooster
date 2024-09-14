@@ -1,0 +1,3 @@
+[.replit]
+language = "js"
+run = "node src/accountHandler.js"
