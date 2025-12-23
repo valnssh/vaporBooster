@@ -140,7 +140,7 @@
 							class="text-xs text-gray-400 hover:text-[var(--primary)] transition-colors flex items-center gap-1"
 							onclick={() => (showAdvanced = !showAdvanced)}
 						>
-							{#if showAdvanced}▼{:else}▶{/if} Advanced features
+							{#if showAdvanced}↯{:else}↝{/if} Advanced features
 						</button>
 
 						{#if showAdvanced}
