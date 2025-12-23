@@ -197,7 +197,7 @@
 {#if contactToDelete}
 	<ConfirmModal
 		title="Delete Chat"
-		message="Are you sure you want to delete all messages with <strong>{contactToDelete.name}</strong>? This cannot be undone."
+		message="Are you sure you want to delete all messages with <strong>{contactToDelete.name}</strong>? <br/> This cannot be undone."
 		confirmText="Delete"
 		variant="danger"
 		onConfirm={confirmDeleteChat}
