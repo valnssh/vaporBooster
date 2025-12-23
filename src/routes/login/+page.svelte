@@ -5,7 +5,7 @@
 	import Card from '$lib/components/ui/Card.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import IconError from '$lib/components/icons/IconError.svelte';
+	import Icon from '$lib/components/icons/Icon.svelte';
 	import { authClient } from '$lib/client';
 
 	let { data } = $props();
@@ -47,7 +47,7 @@
 
 		{#if error}
 			<div class="error-message animate-fade-in">
-				<IconError />
+				<Icon name="error" size={20} />
 				{error}
 			</div>
 

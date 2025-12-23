@@ -233,58 +233,6 @@ body {
 	animation: gradientShift 6s ease infinite;
 }
 
-.btn-primary {
-	background: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-light) 100%);
-	color: var(--bg-darkest);
-	font-weight: 600;
-	border: none;
-	border-radius: 12px;
-	padding: 12px 24px;
-	cursor: pointer;
-	transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-	position: relative;
-	overflow: hidden;
-}
-
-.btn-primary::before {
-	content: '';
-	position: absolute;
-	inset: 0;
-	background: linear-gradient(135deg, var(--secondary-light) 0%, var(--accent-tan) 100%);
-	opacity: 0;
-	transition: opacity 0.3s ease;
-}
-
-.btn-primary:hover {
-	box-shadow: 0 8px 30px rgba(204, 161, 98, 0.4);
-}
-
-.btn-primary:hover::before {
-	opacity: 1;
-}
-
-.btn-primary span {
-	position: relative;
-	z-index: 1;
-}
-
-.btn-secondary {
-	background: rgba(154, 106, 156, 0.15);
-	color: var(--text-primary);
-	font-weight: 500;
-	border: 1px solid rgba(154, 106, 156, 0.3);
-	border-radius: 12px;
-	padding: 12px 24px;
-	cursor: pointer;
-	transition: all 0.3s ease;
-}
-
-.btn-secondary:hover {
-	background: rgba(154, 106, 156, 0.25);
-	border-color: rgba(154, 106, 156, 0.5);
-	transform: translateY(-1px);
-}
-
 .input {
 	width: 100%;
 	padding: 14px 18px;

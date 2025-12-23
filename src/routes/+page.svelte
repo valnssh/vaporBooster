@@ -1,7 +1,6 @@
 <script lang="ts">
 	import StatCard from '$lib/components/dashboard/StatCard.svelte';
-	import IconAccounts from '$lib/components/icons/IconAccounts.svelte';
-	import IconActive from '$lib/components/icons/IconActive.svelte';
+	import Icon from '$lib/components/icons/Icon.svelte';
 	import SteamAccountList from '$lib/components/steam/SteamAccountList.svelte';
 	import AddAccountModal from '$lib/components/steam/AddAccountModal.svelte';
 	import AccountSettingsModal from '$lib/components/steam/AccountSettingsModal.svelte';
@@ -9,10 +8,8 @@
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import Logo from '$lib/components/ui/Logo.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
-	import IconLogout from '$lib/components/icons/IconLogout.svelte';
 	import { authClient } from '$lib/client';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { enhance } from '$app/forms';
 
 	import { onMount, onDestroy } from 'svelte';
 
@@ -88,7 +85,7 @@
 		</div>
 		{#if data.authEnabled}
 			<Button onclick={handleLogout} variant="ghost" class="logout-btn-override">
-				<IconLogout />
+				<Icon name="logout" />
 				Sign Out
 			</Button>
 		{/if}
@@ -98,7 +95,7 @@
 		<StatCard label="Steam Accounts" value={data.accounts?.length || 0} staggerIndex={2}>
 			{#snippet icon()}
 				<div class="stat-icon stat-icon-accounts">
-					<IconAccounts />
+					<Icon name="accounts" />
 				</div>
 			{/snippet}
 		</StatCard>
@@ -110,7 +107,7 @@
 		>
 			{#snippet icon()}
 				<div class="stat-icon stat-icon-active">
-					<IconActive />
+					<Icon name="active" />
 				</div>
 			{/snippet}
 		</StatCard>
@@ -162,7 +159,7 @@
 	{#if accountToDelete}
 		<ConfirmModal
 			title="Delete Account"
-			message="Are you sure you want to delete '{accountToDelete.accountName}'? This action cannot be undone."
+			message="Are you sure you want to delete <strong>{accountToDelete.accountName}</strong>? <br/> This action cannot be undone."
 			confirmText="Delete"
 			variant="danger"
 			onConfirm={confirmDelete}

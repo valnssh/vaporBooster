@@ -3,8 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
-	import IconMoreVertical from '$lib/components/icons/IconMoreVertical.svelte';
-	import IconArrowLeft from '$lib/components/icons/IconArrowLeft.svelte';
+	import Icon from '$lib/components/icons/Icon.svelte';
 
 	let { account, messages = [], onClose } = $props();
 
@@ -115,12 +114,12 @@
 		{@const contact = getContacts().find((c) => c.steamIdOther === selectedContact)}
 		<div class="chat-header">
 			<button class="back-btn" onclick={() => (selectedContact = null)}>
-				<IconArrowLeft />
+				<Icon name="arrowLeft" />
 			</button>
 			<div class="flex-1"></div>
 			<div class="menu-wrapper">
 				<button class="menu-btn" onclick={(e) => toggleMenu(selectedContact!, e)}>
-					<IconMoreVertical />
+					<Icon name="moreVertical" />
 				</button>
 				{#if openMenu === selectedContact}
 					<div class="dropdown-menu" transition:slide={{ duration: 150 }}>
@@ -198,7 +197,7 @@
 {#if contactToDelete}
 	<ConfirmModal
 		title="Delete Chat"
-		message="Are you sure you want to delete all messages with '{contactToDelete.name}'? This cannot be undone."
+		message="Are you sure you want to delete all messages with <strong>{contactToDelete.name}</strong>? This cannot be undone."
 		confirmText="Delete"
 		variant="danger"
 		onConfirm={confirmDeleteChat}

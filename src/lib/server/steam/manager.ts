@@ -145,9 +145,6 @@ class SteamManager {
 			if (account.autoReplyMessage) {
 				client.setAutoReply(account.autoReplyMessage);
 			}
-			if (account.personaState !== undefined) {
-				client.setPersonaState(account.personaState);
-			}
 
 			if (account.customTitle || (account.games && account.games.length > 0)) {
 				client.setGames(account.games || [], account.customTitle || undefined);

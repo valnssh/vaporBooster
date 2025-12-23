@@ -1,13 +1,18 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import IconPlay from '$lib/components/icons/IconPlay.svelte';
-	import IconStop from '$lib/components/icons/IconStop.svelte';
-	import IconSettings from '$lib/components/icons/IconSettings.svelte';
-	import IconMessage from '$lib/components/icons/IconMessage.svelte';
-	import IconTrash from '$lib/components/icons/IconTrash.svelte';
-	import IconKey from '$lib/components/icons/IconKey.svelte';
+	import Icon from '$lib/components/icons/Icon.svelte';
+	import type { SteamAccount } from '$lib/types';
 
-	let { accounts, onOpenSettings, onOpenMessages, onDeleteRequest, onAuthRequest } = $props();
+	interface Props {
+		accounts: SteamAccount[];
+		onOpenSettings?: (account: SteamAccount) => void;
+		onOpenMessages?: (account: SteamAccount) => void;
+		onDeleteRequest?: (account: SteamAccount) => void;
+		onAuthRequest?: (id: string) => void;
+	}
+
+	let { accounts, onOpenSettings, onOpenMessages, onDeleteRequest, onAuthRequest }: Props =
+		$props();
 
 	const getStatusStyle = (status: string) => {
 		switch (status) {
@@ -75,7 +80,8 @@
 
 <div class="steam-account-list flex flex-col gap-3">
 	{#each accounts as account, i (account.id)}
-		{@const statusStyle = getStatusStyle(account.runtimeStatus)}
+		{@const status = account.runtimeStatus ?? 'IDLE'}
+		{@const statusStyle = getStatusStyle(status)}
 
 		<div
 			class="account-card rounded-xl border border-[var(--primary)]/20 hover:border-[var(--primary)]/40 transition-all animate-slide-up"
@@ -91,7 +97,7 @@
 						<div
 							class="absolute right-full mr-3 px-2 py-1 bg-[#1a141d] border border-[var(--primary)]/30 rounded text-[10px] font-bold tracking-wider z-50 whitespace-nowrap opacity-0 invisible group-hover/status:opacity-100 group-hover/status:visible transition-all duration-200 pointer-events-none translate-x-[10px] group-hover/status:translate-x-0 {statusStyle.color} shadow-lg top-1/2 -translate-y-1/2"
 						>
-							{account.runtimeStatus}
+							{status}
 						</div>
 					</div>
 
@@ -101,9 +107,9 @@
 								{account.accountName}
 							</h3>
 						</div>
-						{#if account.runtimeStatus === 'WAITING_FOR_CODE'}
+						{#if status === 'WAITING_FOR_CODE'}
 							<p class="text-sm text-[var(--warning)]">Steam Guard Required</p>
-						{:else if account.runtimeStatus === 'BOOSTING' && account.latestBoostStartedAt}
+						{:else if status === 'BOOSTING' && account.latestBoostStartedAt}
 							<p class="text-sm text-[var(--success-light)] font-mono">
 								{getBoostDuration(account.latestBoostStartedAt)}
 							</p>
@@ -111,10 +117,10 @@
 							<p class="text-sm text-[var(--text-muted)] truncate">
 								{#if account.customTitle}
 									{account.customTitle}
-								{:else if account.games?.length === 1}
+								{:else if (account.games?.length ?? 0) === 1}
 									1 game
-								{:else if account.games?.length > 1}
-									{account.games.length} games
+								{:else if (account.games?.length ?? 0) > 1}
+									{account.games?.length ?? 0} games
 								{/if}
 							</p>
 						{/if}
@@ -122,40 +128,39 @@
 				</div>
 
 				<div class="flex items-center gap-2 flex-shrink-0">
-					{#if account.runtimeStatus === 'WAITING_FOR_CODE'}
+					{#if status === 'WAITING_FOR_CODE'}
 						<button
 							class="icon-btn icon-btn-warning"
 							onclick={() => onAuthRequest?.(account.id)}
 							title="Enter Code"
 						>
-							<IconKey />
+							<Icon name="key" />
 						</button>
 					{:else}
 						<form method="POST" action="?/startAccount" use:enhance class="contents">
 							<input type="hidden" name="id" value={account.id} />
 							<button
 								class="icon-btn icon-btn-success"
-								disabled={account.runtimeStatus === 'BOOSTING' ||
-									account.runtimeStatus === 'ONLINE' ||
-									account.runtimeStatus === 'WAITING_FOR_CODE' ||
-									account.runtimeStatus === 'ERROR' ||
-									account.runtimeStatus === 'LOGIN_REQUIRED'}
+								disabled={status === 'BOOSTING' ||
+									status === 'ONLINE' ||
+									status === 'ERROR' ||
+									status === 'LOGIN_REQUIRED'}
 								title="Run"
 							>
-								<IconPlay />
+								<Icon name="play" />
 							</button>
 						</form>
 						<form method="POST" action="?/stopAccount" use:enhance class="contents">
 							<input type="hidden" name="id" value={account.id} />
 							<button
 								class="icon-btn icon-btn-muted"
-								disabled={account.runtimeStatus === 'IDLE' ||
-									account.runtimeStatus === 'DISCONNECTED' ||
-									account.runtimeStatus === 'ERROR' ||
-									account.runtimeStatus === 'LOGIN_REQUIRED'}
+								disabled={status === 'IDLE' ||
+									status === 'DISCONNECTED' ||
+									status === 'ERROR' ||
+									status === 'LOGIN_REQUIRED'}
 								title="Stop"
 							>
-								<IconStop />
+								<Icon name="stop" />
 							</button>
 						</form>
 					{/if}
@@ -164,20 +169,18 @@
 						class="icon-btn icon-btn-default"
 						onclick={() => onOpenSettings?.(account)}
 						title="Settings"
-						disabled={account.runtimeStatus === 'ERROR' ||
-							account.runtimeStatus === 'LOGIN_REQUIRED'}
+						disabled={status === 'ERROR' || status === 'LOGIN_REQUIRED'}
 					>
-						<IconSettings />
+						<Icon name="settings" />
 					</button>
 
 					<button
 						class="icon-btn icon-btn-default relative"
 						onclick={() => onOpenMessages?.(account)}
 						title="Messages"
-						disabled={account.runtimeStatus === 'ERROR' ||
-							account.runtimeStatus === 'LOGIN_REQUIRED'}
+						disabled={status === 'ERROR' || status === 'LOGIN_REQUIRED'}
 					>
-						<IconMessage />
+						<Icon name="message" />
 					</button>
 
 					<button
@@ -186,7 +189,7 @@
 						title="Delete"
 						onclick={() => onDeleteRequest?.(account)}
 					>
-						<IconTrash />
+						<Icon name="trash" />
 					</button>
 				</div>
 			</div>
