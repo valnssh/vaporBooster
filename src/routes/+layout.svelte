@@ -1,5 +1,6 @@
 <script lang="ts">
 	import '../app.css';
+	import AnimatedBackground from '$lib/components/ui/AnimatedBackground.svelte';
 
 	let { children, data } = $props();
 </script>
@@ -10,6 +11,7 @@
 
 {#if data.user}
 	<div class="app-container">
+		<AnimatedBackground light shapeCount={6} />
 		<main class="app-main">
 			{@render children()}
 		</main>

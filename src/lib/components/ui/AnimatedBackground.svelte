@@ -1,9 +1,35 @@
 <script lang="ts">
+	interface Props {
+		light?: boolean;
+		shapeCount?: number;
+	}
+
+	let { light = false, shapeCount = 3 }: Props = $props();
+
 	const ORB_COUNT = 5;
-	const SHAPE_COUNT = 3;
 
 	function r(min: number, max: number) {
 		return Math.random() * (max - min) + min;
+	}
+
+	// Distribute elements uniformly across the screen using grid zones
+	function getUniformPosition(index: number, total: number, padding: number = 10) {
+		// Calculate grid dimensions (try to make it roughly square)
+		const cols = Math.ceil(Math.sqrt(total));
+		const rows = Math.ceil(total / cols);
+
+		const col = index % cols;
+		const row = Math.floor(index / cols);
+
+		// Calculate zone size
+		const zoneWidth = (100 - padding * 2) / cols;
+		const zoneHeight = (100 - padding * 2) / rows;
+
+		// Random position within the zone
+		const x = padding + col * zoneWidth + r(0, zoneWidth);
+		const y = padding + row * zoneHeight + r(0, zoneHeight);
+
+		return { x, y };
 	}
 
 	let orbs = $state<any[]>([]);
@@ -20,15 +46,19 @@
 			];
 			const color = colors[i % colors.length];
 
+			// Use uniform distribution for start and end positions
+			const start = getUniformPosition(i, ORB_COUNT, -10);
+			const end = getUniformPosition((i + 2) % ORB_COUNT, ORB_COUNT, -10);
+
 			return {
 				id: i,
 				style: `
 					--orb-color: ${color}; 
 					--size: ${r(200, 450)}px;
-					--start-x: ${r(-20, 120)}vw;
-					--start-y: ${r(-20, 120)}vh;
-					--end-x: ${r(-20, 120)}vw;
-					--end-y: ${r(-20, 120)}vh;
+					--start-x: ${start.x}vw;
+					--start-y: ${start.y}vh;
+					--end-x: ${end.x}vw;
+					--end-y: ${end.y}vh;
 					--duration: ${r(15, 30)}s;
 					--delay: ${r(-10, 0)}s;
 					--scale-min: ${r(0.8, 0.9)};
@@ -37,13 +67,15 @@
 			};
 		});
 
-		shapes = Array.from({ length: SHAPE_COUNT }).map((_, i) => {
+		shapes = Array.from({ length: shapeCount }).map((_, i) => {
+			const pos = getUniformPosition(i, shapeCount, 5);
+
 			return {
 				id: i,
 				style: `
 					--size: ${r(50, 120)}px;
-					--start-x: ${r(10, 90)}%;
-					--start-y: ${r(10, 90)}%;
+					--start-x: ${pos.x}%;
+					--start-y: ${pos.y}%;
 					--move-y: ${r(-50, 50)}px;
 					--duration-float: ${r(8, 15)}s;
 					--duration-rotate: ${r(15, 30)}s;
@@ -57,11 +89,13 @@
 </script>
 
 <div class="animated-bg" aria-hidden="true">
-	<div class="gradient-mesh"></div>
+	{#if !light}
+		<div class="gradient-mesh"></div>
 
-	{#each orbs as orb (orb.id)}
-		<div class="orb" style={orb.style}></div>
-	{/each}
+		{#each orbs as orb (orb.id)}
+			<div class="orb" style={orb.style}></div>
+		{/each}
+	{/if}
 
 	<div class="grid-overlay"></div>
 
