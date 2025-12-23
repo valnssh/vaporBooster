@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1f1833"/>
+      <stop offset="100%" stop-color="#1c071a"/>
+    </linearGradient>
+    <linearGradient id="iconGrad" x1="16" y1="16" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9a6a9c"/>
+      <stop offset="50%" stop-color="#cca162"/>
+      <stop offset="100%" stop-color="#e3d588"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bgGrad)"/>
+  <g stroke="url(#iconGrad)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <polygon points="32,12 12,22 32,32 52,22"/>
+    <polyline points="12,42 32,52 52,42"/>
+    <polyline points="12,32 32,42 52,32"/>
+  </g>
+</svg>

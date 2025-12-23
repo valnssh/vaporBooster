@@ -1,0 +1,5 @@
+# Package Manager
+pnpm-lock.yaml
+
+# Miscellaneous
+/static/

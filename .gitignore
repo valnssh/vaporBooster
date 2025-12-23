@@ -1,0 +1,23 @@
+node_modules
+
+# Database
+*.db
+
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# Output
+.deno-deploy
+.svelte-kit
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+!.env.example
