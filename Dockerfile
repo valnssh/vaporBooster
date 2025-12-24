@@ -1,29 +1,35 @@
-FROM node:24-slim
-
+# Build stage
+FROM node:24-slim AS builder
 WORKDIR /app
 
-# Install curl/unzip for Deno and pnpm
-RUN apt-get update && apt-get install -y curl unzip && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Enable corepack and install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Install pnpm and Deno
-RUN npm install -g pnpm \
-    && curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh
-
-# Copy package files first for better caching
-COPY package.json pnpm-lock.yaml* ./
+# Copy package files first for better layer caching
+COPY package.json pnpm-lock.yaml ./
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile || pnpm install
+ENV CI=true
+RUN pnpm install --frozen-lockfile
 
-# Copy the rest of the application
+# Copy source files
 COPY . .
 
 # Run migrations and build
-RUN pnpm migrate
-RUN pnpm build
+RUN pnpm migrate && pnpm build
+
+# Production stage
+FROM denoland/deno:latest
+WORKDIR /app
+
+# Copy only what's needed for runtime
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.deno-deploy ./.deno-deploy
+COPY --from=builder /app/sqlite.db ./sqlite.db
 
 # Expose port 8000
 EXPOSE 8000
 
 # Run with Deno
-CMD ["pnpm", "start"]
+CMD ["deno", "run", "-A", "./.deno-deploy/server.ts"]
