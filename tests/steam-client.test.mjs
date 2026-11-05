@@ -458,8 +458,9 @@ test('manager logs omit account identity, credentials and chat during startup an
 		const active = FakeSteamClient.instances.at(-1);
 		active.emit('refreshToken', refreshed);
 		active.emit('message', { steamId: '76561198000000001', message });
-		await tick();
 		await steamManager.updateConfig(id, { games: [730], customTitle: message });
+		// Graceful stop waits for all queued database writes before assertions.
+		await steamManager.stopAccount(id);
 		const row = await db.query.steamAccount.findFirst({ where: eq(steamAccount.id, id) });
 		assert.equal(
 			decrypt({ content: row.refreshToken, iv: row.iv, authTag: row.authTag }),

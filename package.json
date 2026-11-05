@@ -30,15 +30,14 @@
 		"dev": "vite dev",
 		"build": "vite build && node scripts/postbuild.mjs",
 		"preview": "vite preview",
-		"start": "deno run --cached-only --no-prompt --allow-env --allow-net --allow-sys --allow-read=. --allow-write=. --allow-ffi=./node_modules --env-file=.env scripts/start.ts",
+		"start": "deno run --cached-only --no-prompt --allow-env --allow-net --allow-sys --allow-read=. --env-file=.env scripts/start.ts",
 		"test": "node --experimental-test-module-mocks --test tests/*.test.mjs",
 		"test:runtime": "node tests/runtime-smoke.mjs",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write . \"!**/.private/**\" \"!**/certs/**\" \"!**/backups/**\"",
-		"lint": "prettier --check . \"!**/.private/**\" \"!**/certs/**\" \"!**/backups/**\"",
-		"import:sqlite": "node --env-file-if-exists=.env scripts/import-sqlite.mjs"
+		"lint": "prettier --check . \"!**/.private/**\" \"!**/certs/**\" \"!**/backups/**\""
 	},
 	"devDependencies": {
 		"@deno/svelte-adapter": "0.1.1",

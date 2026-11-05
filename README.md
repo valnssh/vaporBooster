@@ -44,8 +44,7 @@ Version **v0.0.5** вЂ” HTTPS-only. See [release changes](CHANGELOG.md).
 ## Deploy
 
 For Debian 13, see the [Russian deployment guide](DEPLOY_DEBIAN13.ru.md).
-Application data now requires PostgreSQL. Existing SQLite installations must follow
-the [verified migration guide](MIGRATE_POSTGRESQL.ru.md) before starting this version.
+Application data requires PostgreSQL.
 
 For a complete installation with Keycloak, PostgreSQL and a reverse proxy on two
 HTTPS domains, use the [full-stack installation guide](DEPLOY_FULL_STACK.ru.md).
@@ -102,8 +101,7 @@ Compose publishes only HTTPS port 443 and binds to `127.0.0.1` by default.
 For public access, configure OIDC and explicitly set `HTTPS_BIND_IP=0.0.0.0`.
 In the standalone Compose file Deno serves TLS directly. The complete stack uses
 Nginx with HTTP-to-HTTPS redirects and supplied certificates. Data lives in a
-dedicated PostgreSQL database; the old `vaporbooster-data` SQLite volume is kept
-read-only for migration/recovery. No database, backup or `.env` is copied into images.
+dedicated PostgreSQL database. No database, backup or `.env` is copied into images.
 
 ---
 
@@ -149,15 +147,11 @@ Stop the old instance and back up its database before upgrading. Keep the same
 strong `BETTER_AUTH_SECRET`: existing refresh tokens still need the original key.
 Old token rows remain readable, while new tokens use versioned encryption.
 All legacy plaintext Steam Guard seeds, including idle accounts, are encrypted
-during initialization. Old database backups and SQLite pages may still contain
+during initialization. Old database backups and storage snapshots may still contain
 previous plaintext; this migration is not secure erasure of historical copies.
 
-Use the [SQLite → PostgreSQL migration guide](MIGRATE_POSTGRESQL.ru.md).
-The importer preserves every supported table, verifies row contents and sequence
-values, and refuses a nonempty target or a duplicate import. It never deletes
-history. Keep the source backup and original encryption key. An existing default
-`sqlite.db` blocks runtime startup until the import has been verified; for a custom
-filename set `LEGACY_SQLITE_FILE` to its runtime path.
+See the [backup and upgrade guide](DEPLOY_MAINTENANCE.ru.md). Database schema
+migrations run at startup. Keep database backups and the original encryption key.
 
 ## Security changes and checks
 
@@ -171,7 +165,7 @@ filename set `LEGACY_SQLITE_FILE` to its runtime path.
 - Steam chat text is stored for the dashboard but is not printed to process logs.
 - Steam lifecycle logs use fixed messages without account names, account IDs or Guard email domains.
 - Docker runs without root or extra capabilities, with a read-only root filesystem,
-  a separate data volume and restricted Deno filesystem/process permissions.
+  restricted Deno filesystem/process permissions and no application filesystem writes.
 - Production, development and preview require HTTPS. Sessions use Secure cookies,
   and HTTPS responses include HSTS. There is no HTTP fallback.
 - Steam account logins use TLS WebSockets with local server filtering, preventing
@@ -199,9 +193,8 @@ docker rm -f -v hoursbooster-postgres-test
 ```
 
 Each test suite gets a separate PostgreSQL database; the test helper refuses
-admin URLs whose database is not named `hoursbooster_test`. SQLite is used only
-by migration fixtures through Node's built-in `node:sqlite`, never by the running
-application. Steam sessions are synthetic, without real account credentials. See `SECURITY_CHANGES.ru.md` for the Russian
+admin URLs whose database is not named `hoursbooster_test`.
+Steam sessions are synthetic, without real account credentials. See `SECURITY_CHANGES.ru.md` for the Russian
 change summary and deployment limitations.
 
 Steam integration and lifecycle checks are documented in

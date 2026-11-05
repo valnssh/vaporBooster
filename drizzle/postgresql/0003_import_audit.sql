@@ -1,0 +1,1 @@
+ALTER TABLE "_hoursbooster_sqlite_import" RENAME TO "_hoursbooster_import_audit";

@@ -18,7 +18,6 @@ services:
       TLS_KEY_FILE: /run/tls/privkey.pem
       PORT: '8443'
     volumes:
-      - vaporbooster-data:/data:ro
       - type: bind
         source: ${TLS_CERTS_DIR:-./certs}
         target: /run/tls
@@ -33,6 +32,3 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
     restart: unless-stopped
-
-volumes:
-  vaporbooster-data:

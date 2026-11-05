@@ -592,9 +592,6 @@ after(async () => {
 	qr.clearQrSessions();
 	await pool.end();
 	await testDb.cleanup();
-	// Native SQLite can retain file handles until process exit on Windows.
-	// These synthetic fixtures are in OS temp, outside the source tree.
-	if (process.platform === 'win32') return;
 	const resolved = realpathSync(scratch);
 	const child = relative(scratchRoot, resolved);
 	assert.ok(child && !child.startsWith('..') && !isAbsolute(child));

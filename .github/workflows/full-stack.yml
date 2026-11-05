@@ -56,11 +56,8 @@ jobs:
           echo '127.0.0.1 hours.test auth.test' | sudo tee -a /etc/hosts
       - name: Build and start all services
         run: |
-          sudo python3 tests/prepare-sqlite-fixture.py
           dc() { sudo docker compose --project-name hoursbooster --env-file .private/full-stack/compose.env -f deploy/full-stack/compose.yml "$@"; }
           dc up -d --build --wait --wait-timeout 120 postgres
-          dc build sqlite-import
-          dc run --rm --no-deps sqlite-import --source /input/sqlite.db --confirm-stopped
           dc up -d --build
       - name: Verify real HTTPS and OIDC flow
         run: sudo python3 tests/full-stack-smoke.py

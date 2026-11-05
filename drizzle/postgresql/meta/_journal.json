@@ -22,6 +22,13 @@
 			"when": 1793880882096,
 			"tag": "0002_chat_sort_index",
 			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1793888222003,
+			"tag": "0003_import_audit",
+			"breakpoints": true
 		}
 	]
 }

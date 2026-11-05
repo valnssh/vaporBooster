@@ -10,7 +10,7 @@ import {
 	uniqueIndex
 } from 'drizzle-orm/pg-core';
 
-export const sqliteImport = pgTable('_hoursbooster_sqlite_import', {
+export const importAudit = pgTable('_hoursbooster_import_audit', {
 	id: integer('id').primaryKey(),
 	report: jsonb('report').notNull(),
 	createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).defaultNow().notNull()
