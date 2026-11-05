@@ -4,14 +4,14 @@
 
 - Move application data and Better Auth to PostgreSQL with a bounded connection
   pool and mandatory verified TLS; isolate application and Keycloak database roles.
-- Add an atomic, read-only-source SQLite importer with per-row content checks,
-  preserved dates/identifiers/sequences, empty-target and duplicate-import guards.
+- Remove the retired database converter, its container profile and outdated
+  installation guidance; retain import audit records and applied schema history.
 - Fetch recent chats with indexed lateral queries; preserve all stored messages.
 - Preserve active Steam account state during graceful process shutdown.
 - Use Nginx with supplied certificates and HTTP-to-HTTPS redirects; public ACME
   issuance stays outside the repository. Bound Docker logs without deleting chat data.
 - Add real PostgreSQL integration tests and database backup/restore smoke checks.
-- Document initial installation, SQLite cutover, backups and recovery in Russian.
+- Document initial installation, backups and recovery in Russian.
 - Upgrade SvelteKit to 3.1.1 and move configuration into the Vite plugin.
 - Use native `#lib` imports and explicit private, runtime-only environment variables.
 - Patch the pinned Deno adapter for the SvelteKit 3 builder and server-instance APIs,

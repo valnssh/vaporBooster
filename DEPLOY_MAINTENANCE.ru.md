@@ -57,7 +57,6 @@ sudo python3 deploy/full-stack/setup.py --settings .private/full-stack/settings.
 dc ps
 ```
 
-Первый переход с SQLite выполняйте по [отдельной инструкции](MIGRATE_POSTGRESQL.ru.md).
 Не меняйте сохранённые домены, OIDC client secret и ключ шифрования произвольно.
 Журналы Docker ограничены по размеру; история чатов автоматически не удаляется.
 

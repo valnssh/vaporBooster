@@ -12,6 +12,10 @@ backups/
 *.p12
 *.pfx
 *.crt
+deploy/full-stack/compose.vm.yml
+deploy/full-stack/compose.fixture.yml
+vm-smoke.py
+fixture-smoke.py
 
 # Database
 *.db

@@ -62,8 +62,6 @@ services:
       NODE_EXTRA_CA_CERTS: /run/tls/ca.pem
       BETTER_AUTH_TELEMETRY: '0'
     volumes:
-      # Preserve the old SQLite volume read-only for backup/import.
-      - app-data:/data:ro
       - ${PRIVATE_DIR}/pki/vaporbooster:/run/tls:ro
     networks: [edge, database]
     depends_on:
@@ -171,32 +169,6 @@ services:
       - /var/run/postgresql:rw,noexec,nosuid,uid=999,gid=999,size=8m
     restart: unless-stopped
 
-  sqlite-import:
-    profiles: [tools]
-    build:
-      context: ../..
-      dockerfile: Dockerfile
-      target: sqlite-importer
-    # Root only in this short-lived tool, so a root-owned 0600 backup is readable.
-    user: '0:0'
-    environment:
-      DATABASE_URL: postgresql://hoursbooster:${APP_DB_PASSWORD:?Run setup.py}@postgres:5432/hoursbooster
-      DATABASE_CA_FILE: /run/ca.pem
-    volumes:
-      - type: bind
-        # Mount the whole snapshot directory so committed WAL pages are included.
-        source: ${SQLITE_IMPORT_DIR:-${PRIVATE_DIR}/sqlite-backup}
-        target: /input
-        read_only: true
-        bind:
-          create_host_path: false
-      - ${PRIVATE_DIR}/pki/ca.pem:/run/ca.pem:ro
-    networks: [database]
-    read_only: true
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m']
-
 networks:
   edge:
     ipam:
@@ -207,6 +179,5 @@ networks:
     internal: true
 
 volumes:
-  app-data:
   keycloak-data:
   postgres-data:
