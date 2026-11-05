@@ -124,6 +124,10 @@ def main():
         "AND NOT has_database_privilege('hoursbooster','keycloak','CONNECT') "
         "FROM pg_roles WHERE rolname='hoursbooster';"], check=True, capture_output=True, text=True)
     assert isolation.stdout.strip() == 't', 'Application and identity databases must be isolated'
+    imported = subprocess.run(COMPOSE + ['exec', '-T', 'postgres', 'psql', '-U', 'postgres',
+        '-d', 'hoursbooster', '-Atc', "SELECT content FROM steam_chat_message WHERE id=7 AND account_id='migration-fixture-account';"],
+        check=True, capture_output=True, text=True)
+    assert imported.stdout.strip() == 'Проверка переноса 👋', 'Docker SQLite import lost fixture content'
     # A unique-token violation must be observable without exposing the token in DB logs.
     canary = 'fixture-only-session-token-' + uuid.uuid4().hex
     admin_app = COMPOSE + ['exec', '-T', 'postgres', 'psql', '-X', '-v', 'ON_ERROR_STOP=1',
@@ -133,7 +137,8 @@ def main():
     try:
         duplicate = subprocess.run(admin_app + [query % ('canary-second', canary)], capture_output=True)
         assert duplicate.returncode != 0
-        logs = subprocess.run(COMPOSE + ['logs', '--no-color', 'postgres'], check=True, capture_output=True, text=True).stdout
+        logged = subprocess.run(COMPOSE + ['logs', '--no-color', 'postgres'], check=True, capture_output=True, text=True)
+        logs = logged.stdout + logged.stderr
         assert 'duplicate key value violates unique constraint' in logs
         assert canary not in logs, 'PostgreSQL logged a session token'
     finally:

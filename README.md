@@ -155,8 +155,9 @@ previous plaintext; this migration is not secure erasure of historical copies.
 Use the [SQLite → PostgreSQL migration guide](MIGRATE_POSTGRESQL.ru.md).
 The importer preserves every supported table, verifies row contents and sequence
 values, and refuses a nonempty target or a duplicate import. It never deletes
-history. Keep the source backup and original encryption key. A legacy SQLite
-file blocks runtime startup until the import has been verified.
+history. Keep the source backup and original encryption key. An existing default
+`sqlite.db` blocks runtime startup until the import has been verified; for a custom
+filename set `LEGACY_SQLITE_FILE` to its runtime path.
 
 ## Security changes and checks
 
