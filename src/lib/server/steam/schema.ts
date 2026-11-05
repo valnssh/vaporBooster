@@ -83,8 +83,8 @@ export const steamChatMessage = pgTable(
 	(table) => [
 		index('steam_chat_account_time_idx').on(
 			table.accountId,
-			table.timestamp.desc(),
-			table.id.desc()
+			table.timestamp.desc().nullsFirst(),
+			table.id.desc().nullsFirst()
 		),
 		index('steam_chat_conversation_idx').on(table.accountId, table.steamIdOther)
 	]

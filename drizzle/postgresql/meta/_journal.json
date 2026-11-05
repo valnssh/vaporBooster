@@ -15,6 +15,13 @@
 			"when": 1793878193919,
 			"tag": "0001_chubby_pete_wisdom",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1793880882096,
+			"tag": "0002_chat_sort_index",
+			"breakpoints": true
 		}
 	]
 }

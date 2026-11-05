@@ -1,4 +1,5 @@
 import { configureTestDatabase } from './helpers/postgres.mjs';
+import { createDatabasePool } from '../scripts/postgres.mjs';
 const testDb = await configureTestDatabase();
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
@@ -152,6 +153,22 @@ async function rejectedStartup(overrides, name, beforeMigration = false) {
 		assert.notEqual(exit, 'timeout', `Invalid ${name} configuration did not stop startup`);
 		assert.notEqual(exit, 0, `Invalid ${name} configuration was accepted`);
 		assert.doesNotMatch(running.output, /Listening on /);
+		if (beforeMigration) {
+			const pool = createDatabasePool({
+				DATABASE_URL: testDb.url,
+				DATABASE_CA_FILE: testDb.caFile
+			});
+			try {
+				assert.equal(
+					(await pool.query("SELECT to_regclass('drizzle.__drizzle_migrations') AS name")).rows[0]
+						.name,
+					null,
+					'Invalid TLS configuration must not migrate the database'
+				);
+			} finally {
+				await pool.end();
+			}
+		}
 	} finally {
 		clearTimeout(timer);
 		if (running.child.exitCode === null) running.child.kill();
@@ -189,6 +206,10 @@ try {
 	])
 		await rejectedStartup(overrides, name);
 	console.log('PASS: invalid TLS credentials and insecure/mismatched origins refuse startup');
+	const legacyFile = join(scratch, 'unimported.sqlite');
+	await writeFile(legacyFile, 'synthetic legacy database placeholder');
+	await rejectedStartup({ LEGACY_SQLITE_FILE: legacyFile }, 'unimported-sqlite');
+	console.log('PASS: unimported legacy SQLite blocks an empty PostgreSQL startup');
 
 	running = launch();
 	for (let attempt = 0; attempt < 200; attempt++) {

@@ -124,6 +124,20 @@ def main():
         "AND NOT has_database_privilege('hoursbooster','keycloak','CONNECT') "
         "FROM pg_roles WHERE rolname='hoursbooster';"], check=True, capture_output=True, text=True)
     assert isolation.stdout.strip() == 't', 'Application and identity databases must be isolated'
+    # A unique-token violation must be observable without exposing the token in DB logs.
+    canary = 'fixture-only-session-token-' + uuid.uuid4().hex
+    admin_app = COMPOSE + ['exec', '-T', 'postgres', 'psql', '-X', '-v', 'ON_ERROR_STOP=1',
+        '-U', 'postgres', '-d', 'hoursbooster', '-Atc']
+    query = "INSERT INTO session(id,expires_at,token,updated_at,user_id) SELECT '%s',now()+interval '1 day','%s',now(),id FROM public.\"user\" LIMIT 1"
+    subprocess.run(admin_app + [query % ('canary-first', canary)], check=True, capture_output=True)
+    try:
+        duplicate = subprocess.run(admin_app + [query % ('canary-second', canary)], capture_output=True)
+        assert duplicate.returncode != 0
+        logs = subprocess.run(COMPOSE + ['logs', '--no-color', 'postgres'], check=True, capture_output=True, text=True).stdout
+        assert 'duplicate key value violates unique constraint' in logs
+        assert canary not in logs, 'PostgreSQL logged a session token'
+    finally:
+        subprocess.run(admin_app + ["DELETE FROM session WHERE id IN ('canary-first','canary-second')"], check=True, capture_output=True)
     # Verify backup restoration, not merely successful creation of a dump file.
     for database, table in (('hoursbooster', 'public."user"'), ('keycloak', 'public.realm')):
         restore = 'hb_restore_' + uuid.uuid4().hex

@@ -346,6 +346,66 @@ test('manager serializes duplicate starts and stop-restart, ignoring retired ses
 	assert.equal((await db.select().from(steamAccount))[0].status, 'IDLE');
 });
 
+test('pooled Steam event writes retain order and finish before shutdown disconnects', async (t) => {
+	const id = 'ordered-events';
+	const encrypted = encrypt(token());
+	await db.insert(steamAccount).values({
+		id,
+		accountName: id,
+		games: [],
+		refreshToken: encrypted.content,
+		iv: encrypted.iv,
+		authTag: encrypted.authTag
+	});
+	await steamManager.startAccount(id);
+	const active = FakeSteamClient.instances.at(-1);
+	const original = pool.query.bind(pool);
+	let release;
+	let entered;
+	let boostingQueries = 0;
+	const blocked = new Promise((resolve) => {
+		release = resolve;
+	});
+	const onlineEntered = new Promise((resolve) => {
+		entered = resolve;
+	});
+	t.mock.method(pool, 'query', async (...args) => {
+		const text = args[0]?.text || args[0];
+		const values = args[1] || [];
+		if (typeof text === 'string' && text.startsWith('update "steam_account"')) {
+			if (values.includes('ONLINE')) {
+				entered();
+				await blocked;
+			}
+			if (values.includes('BOOSTING')) boostingQueries++;
+		}
+		return original(...args);
+	});
+	let stopping;
+	try {
+		active.emit('status', 'ONLINE');
+		await onlineEntered;
+		active.emit('status', 'BOOSTING');
+		active.emit('message', { steamId: '76561198000000001', message: 'queued-before-shutdown' });
+		stopping = steamManager.stopAll();
+		await new Promise((resolve) => setImmediate(resolve));
+		assert.equal(boostingQueries, 0, 'Later status must wait for the earlier database write');
+		release();
+		await stopping;
+		const row = await db.query.steamAccount.findFirst({ where: eq(steamAccount.id, id) });
+		assert.equal(row.status, 'BOOSTING');
+		assert.equal(
+			(await db.select().from(steamChatMessage).where(eq(steamChatMessage.accountId, id)))[0]
+				.content,
+			'queued-before-shutdown'
+		);
+	} finally {
+		release();
+		await stopping;
+		await db.delete(steamAccount).where(eq(steamAccount.id, id));
+	}
+});
+
 test('shutdown preserves active account state for restart, while a manual stop persists IDLE', async () => {
 	const id = 'restart-account';
 	const encrypted = encrypt(token());
@@ -405,7 +465,11 @@ test('manager logs omit account identity, credentials and chat during startup an
 			decrypt({ content: row.refreshToken, iv: row.iv, authTag: row.authTag }),
 			refreshed
 		);
-		assert.equal((await db.select().from(steamChatMessage))[0].content, message);
+		assert.equal(
+			(await db.select().from(steamChatMessage).where(eq(steamChatMessage.accountId, id)))[0]
+				.content,
+			message
+		);
 		const missingId = 'synthetic-private-missing-id';
 		await db
 			.insert(steamAccount)

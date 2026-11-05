@@ -29,14 +29,23 @@ dc start keycloak vaporbooster
 `auth_secret`/`BETTER_AUTH_SECRET`: без него Steam-токены не расшифруются.
 Не применяйте `down --volumes` и очистку Docker volumes на рабочей установке.
 
-Проверка восстановления: в **отдельной тестовой установке** создайте базу,
-например `hoursbooster_restore`, от администратора PostgreSQL и выполните
-`pg_restore -U postgres -d hoursbooster_restore /путь/hoursbooster.dump` внутри
-контейнера PostgreSQL. Предварительно передайте dump командой `dc cp` в `/tmp`.
-Проверьте записи и запуск приложения с восстановленными секретами. Не направляйте
-восстановленную тестовую копию с активными Steam-аккаунтами в интернет одновременно
-с рабочей. Встроенный `tests/full-stack-smoke.py` проверяет восстановление обеих
-БД только на синтетической установке `--test`.
+Проверка восстановления: в **отдельной тестовой установке**, с тем же сокращением
+`dc`, задайте `backup` путь к скопированному каталогу резервной копии и выполните:
+
+```bash
+for name in hoursbooster keycloak; do
+  dc exec -T postgres createdb -U postgres -O "$name" "${name}_restore" || break
+  dc exec -T postgres pg_restore -U postgres -d "${name}_restore" < "$backup/$name.dump" || break
+done
+dc exec -T postgres psql -U postgres -d hoursbooster_restore -c 'SELECT count(*) FROM public."user"; SELECT count(*) FROM steam_chat_message;'
+dc exec -T postgres psql -U postgres -d keycloak_restore -c 'SELECT count(*) FROM realm; SELECT count(*) FROM user_entity;'
+```
+
+Обе команды восстановления должны завершиться без ошибок; сравните количества
+с исходной установкой. Существующие БД этими командами не перезаписываются.
+Не запускайте восстановленные активные Steam-аккаунты одновременно с рабочими.
+Встроенный `tests/full-stack-smoke.py` проверяет восстановление обеих БД только
+на синтетической установке `--test`.
 
 ## Обновление
 

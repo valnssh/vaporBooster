@@ -5,6 +5,8 @@ import { pathToFileURL } from 'node:url';
 import { createDatabasePool } from './postgres.mjs';
 import { migrateDatabase } from './migrations.mjs';
 
+class ImportError extends Error {}
+
 const tables = {
 	user: ['id', 'name', 'email', 'email_verified', 'image', 'created_at', 'updated_at'],
 	account: [
@@ -75,21 +77,22 @@ function convert(row, table) {
 	for (const [key, value] of Object.entries(row)) {
 		if (value === null) continue;
 		if (key.endsWith('_at') || key === 'timestamp') {
-			if (!Number.isSafeInteger(value)) throw new Error('Invalid SQLite timestamp');
+			if (!Number.isSafeInteger(value)) throw new ImportError('Invalid SQLite timestamp');
 			const date = new Date(value * (table === 'steam_chat_message' ? 1000 : 1));
-			if (!Number.isFinite(date.getTime())) throw new Error('SQLite timestamp is out of range');
+			if (!Number.isFinite(date.getTime()))
+				throw new ImportError('SQLite timestamp is out of range');
 			row[key] = date;
 		} else if (key === 'email_verified') {
-			if (value !== 0 && value !== 1) throw new Error('Invalid SQLite boolean');
+			if (value !== 0 && value !== 1) throw new ImportError('Invalid SQLite boolean');
 			row[key] = value === 1;
 		} else if (key === 'games') {
 			const games = JSON.parse(value);
 			if (!Array.isArray(games) || games.some((id) => !Number.isSafeInteger(id)))
-				throw new Error('Invalid SQLite game list');
+				throw new ImportError('Invalid SQLite game list');
 			row[key] = games;
 		} else if (table === 'steam_chat_message' && key === 'id') {
 			if (!Number.isSafeInteger(value))
-				throw new Error('SQLite message ID exceeds the supported range');
+				throw new ImportError('SQLite message ID exceeds the supported range');
 			row[key] = String(value);
 		}
 	}
@@ -108,9 +111,9 @@ export async function importSqlite(source, pool) {
 				.all()
 				.some((row) => row.integrity_check !== 'ok')
 		)
-			throw new Error('SQLite integrity check failed');
+			throw new ImportError('SQLite integrity check failed');
 		if (sqlite.prepare('PRAGMA foreign_key_check').all().length)
-			throw new Error('SQLite has broken foreign keys');
+			throw new ImportError('SQLite has broken foreign keys');
 		const names = sqlite
 			.prepare("SELECT name FROM sqlite_master WHERE type='table'")
 			.all()
@@ -123,7 +126,7 @@ export async function importSqlite(source, pool) {
 					!Object.hasOwn(tables, name)
 			)
 		)
-			throw new Error('Unknown SQLite tables; refusing an incomplete import');
+			throw new ImportError('Unknown SQLite tables; refusing an incomplete import');
 		for (const [table, columns] of Object.entries(tables)) {
 			const existing = sqlite
 				.prepare(`PRAGMA table_info(${quote(table)})`)
@@ -133,7 +136,7 @@ export async function importSqlite(source, pool) {
 				existing.length !== columns.length ||
 				columns.some((column) => !existing.includes(column))
 			)
-				throw new Error('Unsupported SQLite schema; upgrade the old application first');
+				throw new ImportError('Unsupported SQLite schema; upgrade the old application first');
 		}
 		await migrateDatabase(pool);
 		client = await pool.connect();
@@ -144,10 +147,10 @@ export async function importSqlite(source, pool) {
 			`LOCK TABLE ${Object.keys(tables).map(quote).join(',')}, "_hoursbooster_sqlite_import" IN ACCESS EXCLUSIVE MODE`
 		);
 		if ((await client.query('SELECT 1 FROM "_hoursbooster_sqlite_import"')).rowCount)
-			throw new Error('This database already received a SQLite import');
+			throw new ImportError('This database already received a SQLite import');
 		for (const table of Object.keys(tables)) {
 			if ((await client.query(`SELECT 1 FROM ${quote(table)} LIMIT 1`)).rowCount)
-				throw new Error('Target PostgreSQL database is not empty');
+				throw new ImportError('Target PostgreSQL database is not empty');
 		}
 		const report = {};
 		for (const [table, columns] of Object.entries(tables)) {
@@ -182,7 +185,7 @@ export async function importSqlite(source, pool) {
 				const byId = new Map(reread.rows.map((row) => [String(row.id), row]));
 				for (const row of batch) {
 					const stored = byId.get(String(row.id));
-					if (!stored) throw new Error('PostgreSQL verification lost a row');
+					if (!stored) throw new ImportError('PostgreSQL verification lost a row');
 					sourceHash.update(canonical(row, columns));
 					targetHash.update(canonical(stored, columns));
 				}
@@ -201,13 +204,14 @@ export async function importSqlite(source, pool) {
 				checksum !== targetHash.digest('hex') ||
 				Number((await client.query(`SELECT count(*) FROM ${quote(table)}`)).rows[0].count) !== count
 			)
-				throw new Error('PostgreSQL content verification failed');
+				throw new ImportError('PostgreSQL content verification failed');
 			report[table] = { count, checksum };
 		}
 		const last =
 			sqlite.prepare("SELECT seq FROM sqlite_sequence WHERE name='steam_chat_message'").get()
 				?.seq ?? 0;
-		if (!Number.isSafeInteger(last)) throw new Error('SQLite sequence exceeds the supported range');
+		if (!Number.isSafeInteger(last))
+			throw new ImportError('SQLite sequence exceeds the supported range');
 		await client.query(
 			`SELECT setval(pg_get_serial_sequence('steam_chat_message','id'), GREATEST($1::bigint, COALESCE(max(id),0), 1), GREATEST($1::bigint, COALESCE(max(id),0)) > 0) FROM steam_chat_message`,
 			[last]
@@ -242,10 +246,16 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
 				'SQLite import committed and verified:',
 				Object.fromEntries(Object.entries(report).map(([name, value]) => [name, value.count]))
 			);
-		} catch {
+		} catch (error) {
 			console.error(
 				'SQLite import refused or failed; no partial application rows committed. Check source schema/integrity, an empty target, PostgreSQL TLS and permissions. Keep the source backup.'
 			);
+			if (error instanceof ImportError) console.error(error.message);
+			else {
+				const code = error?.code || error?.cause?.code;
+				if (typeof code === 'string' && /^[A-Z0-9]{5}$/.test(code))
+					console.error('PostgreSQL SQLSTATE:', code);
+			}
 			process.exitCode = 1;
 		} finally {
 			await pool?.end();
