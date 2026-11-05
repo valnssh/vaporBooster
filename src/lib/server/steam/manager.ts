@@ -56,68 +56,76 @@ class SteamManager {
 	}
 
 	private setupClientListeners(id: string, client: SteamClient) {
-		client.on('status', async (status: SteamClientStatus) => {
-			if (this.clients.get(id) !== client) return;
-			const updates: Partial<typeof steamAccount.$inferInsert> = {
-				status: status as
-					| 'IDLE'
-					| 'CONNECTING'
-					| 'ONLINE'
-					| 'BOOSTING'
-					| 'ERROR'
-					| 'LOGIN_REQUIRED'
-					| 'WAITING_FOR_CODE'
-			};
+		// Pool connections can finish writes out of order. Share the account's
+		// operation queue so status/token/message writes drain before disconnect.
+		const persist = (write: () => Promise<void>) =>
+			this.serialize(id, async () => {
+				if (this.clients.get(id) === client) await write();
+			}).catch(() => console.error('[SteamManager] Failed to save Steam event'));
+		client.on('status', (status: SteamClientStatus) =>
+			persist(async () => {
+				const updates: Partial<typeof steamAccount.$inferInsert> = {
+					status: status as
+						| 'IDLE'
+						| 'CONNECTING'
+						| 'ONLINE'
+						| 'BOOSTING'
+						| 'ERROR'
+						| 'LOGIN_REQUIRED'
+						| 'WAITING_FOR_CODE'
+				};
 
-			if (status === 'BOOSTING') {
-				updates.latestBoostStartedAt = new Date();
-			} else if (status === 'DISCONNECTED' || status === 'ERROR' || status === 'ONLINE') {
-				updates.latestBoostStartedAt = null;
-			}
+				if (status === 'BOOSTING') {
+					updates.latestBoostStartedAt = new Date();
+				} else if (status === 'DISCONNECTED' || status === 'ERROR' || status === 'ONLINE') {
+					updates.latestBoostStartedAt = null;
+				}
 
-			try {
-				await db.update(steamAccount).set(updates).where(eq(steamAccount.id, id));
-			} catch {
-				console.error('[SteamManager] Failed to save account status');
-			}
-		});
+				try {
+					await db.update(steamAccount).set(updates).where(eq(steamAccount.id, id));
+				} catch {
+					console.error('[SteamManager] Failed to save account status');
+				}
+			})
+		);
 
-		client.on('refreshToken', async (key: string) => {
-			if (this.clients.get(id) !== client) return;
-			console.log('[SteamManager] Saving refreshed credentials');
-			const encrypted = encrypt(key);
-			try {
-				await db
-					.update(steamAccount)
-					.set({
-						refreshToken: encrypted.content,
-						iv: encrypted.iv,
-						authTag: encrypted.authTag
-					})
-					.where(eq(steamAccount.id, id));
-				console.log('[SteamManager] Saved encrypted refresh token');
-			} catch (e) {
-				console.error('[SteamManager] Failed to save refresh token');
-			}
-		});
+		client.on('refreshToken', (key: string) =>
+			persist(async () => {
+				console.log('[SteamManager] Saving refreshed credentials');
+				const encrypted = encrypt(key);
+				try {
+					await db
+						.update(steamAccount)
+						.set({
+							refreshToken: encrypted.content,
+							iv: encrypted.iv,
+							authTag: encrypted.authTag
+						})
+						.where(eq(steamAccount.id, id));
+					console.log('[SteamManager] Saved encrypted refresh token');
+				} catch (e) {
+					console.error('[SteamManager] Failed to save refresh token');
+				}
+			})
+		);
 
 		client.on(
 			'message',
-			async (data: { steamId: string; message: string; direction?: 'incoming' | 'outgoing' }) => {
-				if (this.clients.get(id) !== client) return;
-				try {
-					await db.insert(steamChatMessage).values({
-						accountId: id,
-						steamIdOther: data.steamId,
-						content: data.message,
-						senderName: data.steamId, // TODO: Get actual name
-						direction: data.direction ?? 'incoming'
-					});
-					console.log('[SteamManager] Saved Steam chat message');
-				} catch (e) {
-					console.error('[SteamManager] Failed to save message');
-				}
-			}
+			(data: { steamId: string; message: string; direction?: 'incoming' | 'outgoing' }) =>
+				persist(async () => {
+					try {
+						await db.insert(steamChatMessage).values({
+							accountId: id,
+							steamIdOther: data.steamId,
+							content: data.message,
+							senderName: data.steamId, // TODO: Get actual name
+							direction: data.direction ?? 'incoming'
+						});
+						console.log('[SteamManager] Saved Steam chat message');
+					} catch (e) {
+						console.error('[SteamManager] Failed to save message');
+					}
+				})
 		);
 	}
 
@@ -204,12 +212,7 @@ class SteamManager {
 
 	public async stopAccount(id: string) {
 		return this.serialize(id, async () => {
-			const client = this.clients.get(id);
-			this.clients.delete(id);
-			if (client) {
-				client.removeAllListeners();
-				await client.logOff();
-			}
+			await this.disconnect(id);
 			await db
 				.update(steamAccount)
 				.set({ status: 'IDLE', latestBoostStartedAt: null })
@@ -219,7 +222,19 @@ class SteamManager {
 
 	public async stopAll() {
 		console.log('[SteamManager] Stopping all accounts...');
-		await Promise.all([...this.clients.keys()].map((id) => this.stopAccount(id)));
+		// A process shutdown must preserve ONLINE/BOOSTING for automatic recovery.
+		await Promise.all(
+			[...this.clients.keys()].map((id) => this.serialize(id, () => this.disconnect(id)))
+		);
+	}
+
+	private async disconnect(id: string) {
+		const client = this.clients.get(id);
+		this.clients.delete(id);
+		if (client) {
+			client.removeAllListeners();
+			await client.logOff();
+		}
 	}
 
 	public async submitCode(id: string, code: string) {

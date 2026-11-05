@@ -1,18 +1,24 @@
 services:
   vaporbooster:
+    logging:
+      driver: local
+      options:
+        max-size: '10m'
+        max-file: '3'
     build: .
     ports:
       - '${HTTPS_BIND_IP:-127.0.0.1}:443:8443'
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-file:/data/sqlite.db}
+      DATABASE_URL: ${DATABASE_URL:?Set the PostgreSQL URL in .env}
+      DATABASE_CA_FILE: /run/tls/database-ca.pem
       BETTER_AUTH_TELEMETRY: '0'
       TLS_CERT_FILE: /run/tls/fullchain.pem
       TLS_KEY_FILE: /run/tls/privkey.pem
       PORT: '8443'
     volumes:
-      - vaporbooster-data:/data
+      - vaporbooster-data:/data:ro
       - type: bind
         source: ${TLS_CERTS_DIR:-./certs}
         target: /run/tls

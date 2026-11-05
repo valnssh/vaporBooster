@@ -14,6 +14,7 @@ export const variables = defineEnvVars({
 	STEAM_LOGIN_ENABLED: optional,
 	STEAM_ALLOWED_IDS: optional,
 	DATABASE_URL: optional,
+	DATABASE_CA_FILE: optional,
 	LOCAL_ACCOUNT_NAME: optional,
 	ALLOW_ANONYMOUS: optional,
 	NODE_TLS_REJECT_UNAUTHORIZED: optional

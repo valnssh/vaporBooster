@@ -34,7 +34,7 @@ export const auth = betterAuth({
 	advanced: { useSecureCookies: true },
 	account: { accountLinking: { disableImplicitLinking: true } },
 	database: drizzleAdapter(db, {
-		provider: 'sqlite'
+		provider: 'pg'
 	}),
 	secret: building ? 'build-only-placeholder-not-a-runtime-secret' : config.auth.secret,
 	baseURL: building ? 'https://localhost:8443' : config.auth.url,

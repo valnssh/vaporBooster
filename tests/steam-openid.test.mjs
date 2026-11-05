@@ -1,3 +1,5 @@
+import { configureTestDatabase } from './helpers/postgres.mjs';
+const testDb = await configureTestDatabase();
 import assert from 'node:assert/strict';
 import { privateEnvModule } from './helpers/private-env.mjs';
 import { test, after, mock } from 'node:test';
@@ -10,7 +12,6 @@ const root = new URL('../', import.meta.url);
 const origin = 'https://hours.example.test';
 const steamId = '76561198000000001';
 const scratch = mkdtempSync(join(tmpdir(), 'hoursbooster-openid-'));
-process.env.DATABASE_URL = `file:${join(scratch, 'synthetic.db').replaceAll('\\', '/')}`;
 process.env.BETTER_AUTH_SECRET = 'test-only-steam-openid-secret-0123456789';
 process.env.BETTER_AUTH_URL = process.env.ORIGIN = origin;
 process.env.STEAM_LOGIN_ENABLED = 'true';
@@ -18,6 +19,8 @@ process.env.STEAM_ALLOWED_IDS = steamId;
 process.env.BETTER_AUTH_TELEMETRY = '0';
 registerHooks({
 	resolve(specifier, context, next) {
+		if (specifier === '$app/env')
+			return { url: 'data:text/javascript,export const building=false;', shortCircuit: true };
 		if (specifier === '$app/env/private') return privateEnvModule();
 		if (specifier.startsWith('#lib/'))
 			specifier = new URL(`src/lib/${specifier.slice(5)}`, root).href;
@@ -40,14 +43,14 @@ const { betterAuth } = await import('better-auth');
 const { createAuthEndpoint } = await import('better-auth/api');
 const { setSessionCookie } = await import('better-auth/cookies');
 const { drizzleAdapter } = await import('better-auth/adapters/drizzle');
-const { db } = await import('../src/lib/database.ts');
+const { db, pool } = await import('../src/lib/database.ts');
 const { account, user, verification } = await import('../src/lib/schema.ts');
 const { eq } = await import('drizzle-orm');
 const { steamOpenId, verifySteamAssertion } = await import('../src/lib/server/steam/openid.ts');
 const { config, validateConfig, isAuthEnabled } = await import('../src/lib/server/config.ts');
 let syntheticSession;
 const auth = betterAuth({
-	database: drizzleAdapter(db, { provider: 'sqlite' }),
+	database: drizzleAdapter(db, { provider: 'pg' }),
 	baseURL: origin,
 	secret: process.env.BETTER_AUTH_SECRET,
 	telemetry: { enabled: false },
@@ -376,7 +379,8 @@ test('expired challenges and duplicate callback parameters fail without a provid
 	assert.equal(verifyCalls, before);
 });
 
-after(() => {
-	db.$client.close();
+after(async () => {
+	await pool.end();
+	await testDb.cleanup();
 	mock.restoreAll();
 });

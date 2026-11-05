@@ -19,9 +19,12 @@ class SetupTests(unittest.TestCase):
 
     def test_canonical_issuer_port_is_reachable_inside_docker(self):
         directory = Path(__file__).parent
-        caddy = (directory / "Caddyfile").read_text()
+        nginx = (directory / "nginx.conf").read_text()
         compose = (directory / "compose.yml").read_text()
-        self.assertIn("https_port 443\n", caddy)
+        self.assertIn("listen 443 ssl;", nginx)
+        self.assertIn("return 308 https://$host$request_uri;", nginx)
+        self.assertIn("proxy_ssl_verify on;", nginx)
+        self.assertIn("}:80:80'", compose)
         self.assertIn("}:443:443'", compose)
         self.assertIn("net.ipv4.ip_unprivileged_port_start: '0'", compose)
 
@@ -34,18 +37,27 @@ class SetupTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             setup.validate({**self.settings(), "AUTH_DOMAIN": "real.example.com"}, test=True)
 
-    def test_production_checks_every_dns_address(self):
-        values = {**self.settings(), "HOURS_DOMAIN": "hours.deployment.dev", "AUTH_DOMAIN": "auth.deployment.dev", "SERVER_IP": "8.8.8.8", "ACME_EMAIL": "operator@deployment.dev"}
-        with patch.object(setup.socket, "getaddrinfo", return_value=[(2, 1, 6, "", ("8.8.8.8", 443))]):
-            self.assertEqual(setup.validate(values)["SERVER_IP"], "8.8.8.8")
-        with patch.object(setup.socket, "getaddrinfo", return_value=[(2, 1, 6, "", ("8.8.8.8", 443)), (10, 1, 6, "", ("2001:4860:4860::8888", 443, 0, 0))]), self.assertRaises(ValueError):
-            setup.validate(values)
+    def test_home_vm_does_not_require_public_address(self):
+        values = {**self.settings(), "HOURS_DOMAIN": "hours.deployment.dev", "AUTH_DOMAIN": "auth.deployment.dev", "SERVER_IP": "192.168.1.50", "ACME_EMAIL": "operator@deployment.dev"}
+        self.assertEqual(setup.validate(values)["SERVER_IP"], "192.168.1.50")
+        del values["SERVER_IP"]
+        del values["ACME_EMAIL"]
+        self.assertNotIn("SERVER_IP", setup.validate(values))
 
     def test_synthetic_install_is_private_idempotent_and_verifiable(self):
         values = setup.validate(self.settings(), test=True)
         with tempfile.TemporaryDirectory() as temporary:
             private = Path(temporary)
             first = setup.prepare(values, private, test=True)
+            setup.verify_proxy_tls(values, private / "certs", private / "pki/ca.pem")
+            with self.assertRaises(RuntimeError):
+                setup.verify_proxy_tls({**values, "AUTH_DOMAIN": "wrong.test"}, private / "certs", private / "pki/ca.pem")
+            key_path = private / "certs/nginx/privkey.pem"
+            saved_key = key_path.read_text()
+            setup.private_write(key_path, (private / "pki/keycloak/privkey.pem").read_text())
+            with self.assertRaises(ValueError):
+                setup.verify_proxy_tls(values, private / "certs", private / "pki/ca.pem")
+            setup.private_write(key_path, saved_key, 0o400)
             cert = (private / "pki/vaporbooster/fullchain.pem").read_bytes()
             ca = (private / "pki/ca.pem").read_bytes()
             second = setup.prepare(values, private, test=True)
@@ -74,6 +86,7 @@ class SetupTests(unittest.TestCase):
             if os.name != "nt":
                 self.assertEqual((private / "state.json").stat().st_mode & 0o777, 0o600)
                 self.assertEqual((private / "pki/ca.key").stat().st_mode & 0o777, 0o600)
+            (private / "certs/nginx").chmod(0o700)
             # Restore directory permissions so non-root unit tests can clean up.
             for directory in (private / "pki").iterdir():
                 if directory.is_dir():

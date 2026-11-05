@@ -22,7 +22,8 @@ export const config = {
 			.filter(Boolean)
 	},
 	database: {
-		url: env.DATABASE_URL || 'file:sqlite.db'
+		url: env.DATABASE_URL,
+		caFile: env.DATABASE_CA_FILE
 	},
 	general: {
 		localAccountName: env.LOCAL_ACCOUNT_NAME || 'Anonymous',

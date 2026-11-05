@@ -11,6 +11,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from html.parser import HTMLParser
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -32,6 +33,7 @@ class LoginForm(HTMLParser):
 
 def main():
     state = json.loads((PRIVATE / 'state.json').read_text())
+    assert state['test'] is True, 'Run this smoke test only against a synthetic test deployment'
     ctx = ssl.create_default_context(cafile=str(PRIVATE / 'pki/ca.pem'))
     cookies = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(
@@ -74,7 +76,7 @@ def main():
         assert isinstance(error.reason, ssl.SSLCertVerificationError)
 
     # No plaintext or directly exposed application/identity/database ports.
-    for port in (80, 8000, 8080, 8443, 5432):
+    for port in (8000, 8080, 8443, 5432):
         with socket.socket() as sock:
             sock.settimeout(1)
             assert sock.connect_ex(('127.0.0.1', port)) != 0, f'Unexpected public port {port}'
@@ -112,6 +114,51 @@ def main():
         '-d', 'postgres', '-Atc', "SELECT rolsuper OR rolcreatedb OR rolcreaterole FROM pg_roles "
         "WHERE rolname='keycloak';"], check=True, capture_output=True, text=True)
     assert role.stdout.strip() == 'f', 'Keycloak must use a restricted database role'
+    app_database = subprocess.run(COMPOSE + ['exec', '-T', 'postgres', 'psql', '-U', 'postgres',
+        '-d', 'postgres', '-Atc', "SELECT bool_and(s.ssl) FROM pg_stat_ssl s JOIN pg_stat_activity a "
+        "USING(pid) WHERE a.usename='hoursbooster' AND a.backend_type='client backend';"],
+        check=True, capture_output=True, text=True)
+    assert app_database.stdout.strip() == 't', 'HoursBooster must connect to PostgreSQL over TLS'
+    isolation = subprocess.run(COMPOSE + ['exec', '-T', 'postgres', 'psql', '-U', 'postgres',
+        '-d', 'postgres', '-Atc', "SELECT NOT (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls) "
+        "AND NOT has_database_privilege('hoursbooster','keycloak','CONNECT') "
+        "FROM pg_roles WHERE rolname='hoursbooster';"], check=True, capture_output=True, text=True)
+    assert isolation.stdout.strip() == 't', 'Application and identity databases must be isolated'
+    imported = subprocess.run(COMPOSE + ['exec', '-T', 'postgres', 'psql', '-U', 'postgres',
+        '-d', 'hoursbooster', '-Atc', "SELECT content FROM steam_chat_message WHERE id=7 AND account_id='migration-fixture-account';"],
+        check=True, capture_output=True, text=True)
+    assert imported.stdout.strip() == 'Проверка переноса 👋', 'Docker SQLite import lost fixture content'
+    # A unique-token violation must be observable without exposing the token in DB logs.
+    canary = 'fixture-only-session-token-' + uuid.uuid4().hex
+    admin_app = COMPOSE + ['exec', '-T', 'postgres', 'psql', '-X', '-v', 'ON_ERROR_STOP=1',
+        '-U', 'postgres', '-d', 'hoursbooster', '-Atc']
+    query = "INSERT INTO session(id,expires_at,token,updated_at,user_id) SELECT '%s',now()+interval '1 day','%s',now(),id FROM public.\"user\" LIMIT 1"
+    subprocess.run(admin_app + [query % ('canary-first', canary)], check=True, capture_output=True)
+    try:
+        duplicate = subprocess.run(admin_app + [query % ('canary-second', canary)], capture_output=True)
+        assert duplicate.returncode != 0
+        logged = subprocess.run(COMPOSE + ['logs', '--no-color', 'postgres'], check=True, capture_output=True, text=True)
+        logs = logged.stdout + logged.stderr
+        assert 'duplicate key value violates unique constraint' in logs
+        assert canary not in logs, 'PostgreSQL logged a session token'
+    finally:
+        subprocess.run(admin_app + ["DELETE FROM session WHERE id IN ('canary-first','canary-second')"], check=True, capture_output=True)
+    # Verify backup restoration, not merely successful creation of a dump file.
+    for database, table in (('hoursbooster', 'public."user"'), ('keycloak', 'public.realm')):
+        restore = 'hb_restore_' + uuid.uuid4().hex
+        admin = COMPOSE + ['exec', '-T', 'postgres', 'psql', '-X', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'postgres', '-Atc']
+        original = subprocess.run(COMPOSE + ['exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', database,
+            '-Atc', 'SELECT count(*) FROM ' + table], check=True, capture_output=True)
+        dump = subprocess.run(COMPOSE + ['exec', '-T', 'postgres', 'pg_dump', '-U', 'postgres', '-Fc', database], check=True, capture_output=True)
+        subprocess.run(admin + ['CREATE DATABASE ' + restore], check=True, capture_output=True)
+        try:
+            subprocess.run(COMPOSE + ['exec', '-T', 'postgres', 'pg_restore', '-U', 'postgres', '-d', restore],
+                input=dump.stdout, check=True, capture_output=True)
+            restored = subprocess.run(COMPOSE + ['exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', restore,
+                '-Atc', 'SELECT count(*) FROM ' + table], check=True, capture_output=True)
+            assert original.stdout == restored.stdout, 'Restored database row count differs'
+        finally:
+            subprocess.run(admin + ['DROP DATABASE ' + restore], check=True, capture_output=True)
     plaintext = subprocess.run(COMPOSE + ['exec', '-T', '-e', 'PGSSLMODE=disable',
         '-e', 'PGCONNECT_TIMEOUT=3', 'postgres', 'psql', '-h', '127.0.0.1', '-U', 'keycloak',
         '-d', 'keycloak', '-Atc', 'SELECT 1'], capture_output=True, text=True)
@@ -126,7 +173,7 @@ def main():
         raise AssertionError('Cross-origin linking accepted')
     except urllib.error.HTTPError as error:
         assert error.code in (400, 403)
-    print('Verified HTTPS proxy, closed ports, real Keycloak OIDC+PKCE, Secure session and Steam start.')
+    print('Verified HTTPS proxy, real Keycloak OIDC+PKCE, PostgreSQL TLS/role isolation, backup restoration of both databases, Secure session and Steam start.')
 
 
 if __name__ == '__main__':

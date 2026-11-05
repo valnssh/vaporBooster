@@ -1,3 +1,5 @@
+import { configureTestDatabase } from './helpers/postgres.mjs';
+const testDb = await configureTestDatabase();
 import assert from 'node:assert/strict';
 import { test, mock, beforeEach, after } from 'node:test';
 import { registerHooks, createRequire } from 'node:module';
@@ -13,7 +15,6 @@ import { privateEnvModule } from './helpers/private-env.mjs';
 const root = new URL('../', import.meta.url);
 const scratchRoot = realpathSync(process.env.SECURITY_TEST_DIR || tmpdir());
 const scratch = mkdtempSync(join(scratchRoot, 'vaporbooster-security-'));
-process.env.DATABASE_URL = `file:${join(scratch, 'test.db').replaceAll('\\', '/')}`;
 process.env.BETTER_AUTH_SECRET = 'test-only-master-secret-0123456789abcdefghijk';
 process.env.BETTER_AUTH_URL = 'https://localhost:8443';
 process.env.ORIGIN = 'https://localhost:8443';
@@ -21,6 +22,8 @@ process.env.ALLOW_ANONYMOUS = 'true';
 
 registerHooks({
 	resolve(specifier, context, next) {
+		if (specifier === '$app/env')
+			return { url: 'data:text/javascript,export const building=false;', shortCircuit: true };
 		if (specifier === '$app/env/private') {
 			return privateEnvModule();
 		}
@@ -81,7 +84,7 @@ mock.module(new URL('src/lib/auth.ts', root).href, {
 	namedExports: { isAuthEnabled: isOidcEnabled }
 });
 await import('../scripts/migrate.mjs');
-const { db } = await import('../src/lib/database.ts');
+const { db, pool } = await import('../src/lib/database.ts');
 const { user } = await import('../src/lib/schema.ts');
 const { steamAccount, steamChatMessage } = await import('../src/lib/server/steam/schema.ts');
 const { eq } = await import('drizzle-orm');
@@ -179,6 +182,35 @@ test('every account action rejects anonymous and foreign owners; local mode isol
 	oidc(false);
 	await page.actions.startAccount(event(anonymous, { id: 'local' }));
 	assert.equal(calls.at(-1)[1], 'local');
+});
+
+test('dashboard returns the latest 50 messages for each owned account with deterministic timestamp ties', async () => {
+	await account('first');
+	await account('second');
+	await account('foreign', 'bob');
+	for (const id of ['first', 'second', 'foreign']) {
+		await db.insert(steamChatMessage).values(
+			Array.from({ length: 65 }, (_, i) => ({
+				accountId: id,
+				steamIdOther: '76561198000000001',
+				content: `${id}-${i}`,
+				timestamp: new Date(1700000000000)
+			}))
+		);
+	}
+	const data = await page.load({ locals: alice });
+	assert.deepEqual(Object.keys(data.messages).sort(), ['first', 'second']);
+	for (const id of ['first', 'second']) {
+		assert.deepEqual(
+			data.messages[id].map((row) => row.content),
+			Array.from({ length: 50 }, (_, i) => `${id}-${i + 15}`)
+		);
+	}
+	assert.equal(
+		(await db.select().from(steamChatMessage)).length,
+		195,
+		'Loading a page must not delete history'
+	);
 });
 
 test('page and layout serialize neither Steam credentials nor auth session token', async () => {
@@ -347,9 +379,9 @@ test('a malformed legacy seed is rejected per account without disabling the dash
 	assert.equal((await db.select().from(steamAccount)).length, 1);
 });
 
-test('runtime migration accepts the original schema without deleting existing data', async () => {
+test('PostgreSQL runtime migrations are idempotent without deleting existing data', async () => {
 	await account('legacy-data');
-	await db.$client.execute('DROP TABLE __drizzle_migrations');
+
 	await import('../scripts/migrate.mjs?legacy-schema');
 	await import('../scripts/migrate.mjs?idempotent');
 	const rows = await db.select().from(steamAccount);
@@ -556,9 +588,10 @@ test(
 	}
 );
 
-after(() => {
+after(async () => {
 	qr.clearQrSessions();
-	db.$client.close();
+	await pool.end();
+	await testDb.cleanup();
 	// Native SQLite can retain file handles until process exit on Windows.
 	// These synthetic fixtures are in OS temp, outside the source tree.
 	if (process.platform === 'win32') return;

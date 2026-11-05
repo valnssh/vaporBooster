@@ -1,14 +1,11 @@
-import { createClient } from '@libsql/client';
-import { drizzle } from 'drizzle-orm/libsql';
-import { migrate } from 'drizzle-orm/libsql/migrator';
-import { fileURLToPath } from 'node:url';
+import { createDatabasePool } from './postgres.mjs';
+import { migrateDatabase } from './migrations.mjs';
 
-process.umask(0o077);
-const client = createClient({ url: process.env.DATABASE_URL || 'file:sqlite.db' });
+const pool = createDatabasePool(process.env);
 try {
-	await migrate(drizzle(client), {
-		migrationsFolder: fileURLToPath(new URL('../drizzle', import.meta.url))
-	});
+	await migrateDatabase(pool);
+} catch {
+	throw new Error('PostgreSQL migration failed; check connectivity, TLS and database ownership');
 } finally {
-	client.close();
+	await pool.end();
 }

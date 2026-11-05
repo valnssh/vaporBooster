@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import secrets
 import shutil
-import socket
 import ssl
 import subprocess
 import sys
@@ -18,6 +17,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 PRIVATE = ROOT / ".private" / "full-stack"
+CERTS = ROOT / "certs" / "full-stack"
 KEYS = {"HOURS_DOMAIN", "AUTH_DOMAIN", "SERVER_IP", "ACME_EMAIL", "STEAM_ALLOWED_IDS", "EDGE_SUBNET"}
 OPENSSL = os.environ.get("OPENSSL_BINARY", "openssl")
 
@@ -37,7 +37,7 @@ def read_settings(path):
 
 def validate(settings, test=False, check_dns=True):
     values = dict(settings)
-    if set(values) - KEYS or not KEYS - {"EDGE_SUBNET"} <= set(values):
+    if set(values) - KEYS or not KEYS - {"EDGE_SUBNET", "SERVER_IP", "ACME_EMAIL"} <= set(values):
         raise ValueError("Fill in all required settings from settings.example.env")
     for name in ("HOURS_DOMAIN", "AUTH_DOMAIN"):
         domain = values[name].lower()
@@ -51,14 +51,15 @@ def validate(settings, test=False, check_dns=True):
         values[name] = domain
     if values["HOURS_DOMAIN"] == values["AUTH_DOMAIN"]:
         raise ValueError("HOURS_DOMAIN and AUTH_DOMAIN must differ")
-    address = ipaddress.ip_address(values["SERVER_IP"])
-    if address.version != 4 or (test and str(address) != "127.0.0.1") or (not test and not address.is_global):
-        raise ValueError("SERVER_IP must be a public IPv4 address (127.0.0.1 only for --test)")
-    values["SERVER_IP"] = str(address)
-    if not re.fullmatch(r"[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,63}", values["ACME_EMAIL"]):
-        raise ValueError("ACME_EMAIL must be an email address")
-    if not test and values["ACME_EMAIL"].lower().endswith(("@example.com", "@example.net", "@example.org", ".invalid")):
-        raise ValueError("Replace the example ACME_EMAIL")
+    # Legacy SERVER_IP is optional metadata; supplied certificates need no public-IP check.
+    if values.get("SERVER_IP"):
+        address = ipaddress.ip_address(values["SERVER_IP"])
+        if address.version != 4 or address.is_unspecified or address.is_multicast or (address.is_loopback and not test):
+            raise ValueError("SERVER_IP must be a unicast IPv4 address; omit it if unused")
+        values["SERVER_IP"] = str(address)
+    if values.get("ACME_EMAIL"):
+        if not re.fullmatch(r"[A-Za-z0-9._+%-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,63}", values["ACME_EMAIL"]):
+            raise ValueError("ACME_EMAIL must be an email address when provided")
     ids = values["STEAM_ALLOWED_IDS"].split(",")
     if not 1 <= len(ids) <= 32 or any(not re.fullmatch(r"[0-9]{17}", item) for item in ids) or len(set(ids)) != len(ids):
         raise ValueError("STEAM_ALLOWED_IDS needs 1-32 unique SteamID64 values, separated by commas")
@@ -66,14 +67,6 @@ def validate(settings, test=False, check_dns=True):
     if network.version != 4 or network.prefixlen != 24 or not network.is_private:
         raise ValueError("EDGE_SUBNET must be a private IPv4 /24 subnet")
     values["EDGE_SUBNET"] = str(network)
-    if check_dns and not test:
-        for name in ("HOURS_DOMAIN", "AUTH_DOMAIN"):
-            try:
-                addresses = {ipaddress.ip_address(row[4][0]) for row in socket.getaddrinfo(values[name], 443, type=socket.SOCK_STREAM)}
-            except socket.gaierror:
-                raise ValueError(name + " does not resolve; set its DNS record first") from None
-            if addresses != {address}:
-                raise ValueError(name + " DNS must resolve only to SERVER_IP; remove stale A/AAAA records")
     return values
 
 
@@ -121,19 +114,23 @@ def leaf(pki, name, sans, uid, renew=False):
         os.chown(key, uid, uid)
 
 
-def prepare(settings, private=PRIVATE, test=False, renew=False):
+def prepare(settings, private=PRIVATE, test=False, renew=False, certs=None):
+    certs = Path(certs) if certs is not None else (private / "certs" if test else CERTS)
     """Called by unit tests with a synthetic private directory; no network or Docker."""
     private.mkdir(parents=True, exist_ok=True, mode=0o700)
     private.chmod(0o700)
     state_file = private / "state.json"
     if state_file.exists():
         state = json.loads(state_file.read_text(encoding="utf-8"))
-        if state["settings"] != settings or state["test"] != test:
+        if {k: v for k, v in state["settings"].items() if k not in ("SERVER_IP", "ACME_EMAIL")} != {k: v for k, v in settings.items() if k not in ("SERVER_IP", "ACME_EMAIL")} or state["test"] != test:
             raise ValueError("Existing deployment settings differ; migrate through Keycloak before changing domains or secrets")
     else:
         state = {"settings": settings, "test": test}
         for key in ("auth_secret", "client_secret", "db_password", "postgres_password", "admin_password", "initial_password"):
             state[key] = secrets.token_urlsafe(36)
+        private_write(state_file, json.dumps(state, indent=2) + "\n")
+    if "app_db_password" not in state:
+        state["app_db_password"] = secrets.token_urlsafe(36)
         private_write(state_file, json.dumps(state, indent=2) + "\n")
     pki = private / "pki"
     pki.mkdir(exist_ok=True, mode=0o700)
@@ -146,19 +143,30 @@ def prepare(settings, private=PRIVATE, test=False, renew=False):
     (pki / "ca.pem").chmod(0o444)
     for service, uid in (("vaporbooster", 1993), ("keycloak", 1000), ("postgres", 999)):
         leaf(pki, service, [service], uid, renew)
-    # This directory is mounted only by the proxy, and contains no backend keys.
-    (pki / "proxy").mkdir(exist_ok=True)
+    if certs.is_symlink():
+        raise ValueError("Certificate directory must not be a symlink")
+    certs.mkdir(parents=True, exist_ok=True, mode=0o700)
+    certs.chmod(0o700)
     if test:
-        leaf(pki, "proxy", [settings["HOURS_DOMAIN"], settings["AUTH_DOMAIN"]], 1000, renew)
-        tls = "tls /run/tls/fullchain.pem /run/tls/privkey.pem\n"
-    else:
-        (pki / "proxy").chmod(0o500)
-        tls = "tls {\n issuer acme {\n  dir https://acme-v02.api.letsencrypt.org/directory\n  email " + settings["ACME_EMAIL"] + "\n  disable_http_challenge\n }\n}\n"
-    private_write(private / "tls.conf", tls, 0o444)
+        leaf(pki, "proxy", [settings["HOURS_DOMAIN"], settings["AUTH_DOMAIN"]], 101, renew)
+        public = certs / "nginx"
+        public.mkdir(exist_ok=True)
+        public.chmod(0o700)
+        for name in ("fullchain.pem", "privkey.pem"):
+            private_write(public / name, (pki / "proxy" / name).read_text(), 0o400 if name == "privkey.pem" else 0o444)
+        public.chmod(0o500)
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            os.chown(public, 101, 101)
+            os.chown(public / "privkey.pem", 101, 101)
+    nginx = (ROOT / "deploy/full-stack/nginx.conf").read_text()
+    for key in ("HOURS_DOMAIN", "AUTH_DOMAIN"):
+        nginx = nginx.replace("${" + key + "}", settings[key])
+    private_write(private / "nginx.conf", nginx, 0o444)
     network = ipaddress.ip_network(settings["EDGE_SUBNET"])
     env = {
         **settings,
         "PRIVATE_DIR": private.resolve().as_posix(),
+        "CERTS_DIR": certs.resolve().as_posix(),
         "PROXY_IP": str(network.network_address + 2),
         # Keep dynamic leases out of the statically assigned proxy address.
         "EDGE_DYNAMIC_RANGE": str(list(network.subnets(new_prefix=25))[1]),
@@ -166,6 +174,7 @@ def prepare(settings, private=PRIVATE, test=False, renew=False):
         "BETTER_AUTH_SECRET": state["auth_secret"],
         "OIDC_CLIENT_SECRET": state["client_secret"],
         "DB_PASSWORD": state["db_password"],
+        "APP_DB_PASSWORD": state["app_db_password"],
         "POSTGRES_PASSWORD": state["postgres_password"],
         "ADMIN_PASSWORD": state["admin_password"],
         "INITIAL_PASSWORD": state["initial_password"],
@@ -177,6 +186,24 @@ def prepare(settings, private=PRIVATE, test=False, renew=False):
     private_write(private / "compose.env", "".join(key + "='" + str(value) + "'\n" for key, value in env.items()))
     private_write(private / "credentials.txt", "HoursBooster initial Keycloak login\nUsername: operator\nPassword: " + state["initial_password"] + "\n\nKeycloak bootstrap admin (master realm; create a permanent administrator)\nUsername: bootstrap-admin\nPassword: " + state["admin_password"] + "\n")
     return state
+
+
+def verify_proxy_tls(settings, certs=CERTS, ca=None):
+    public = certs / "nginx"
+    cert, key = public / "fullchain.pem", public / "privkey.pem"
+    if public.is_symlink() or any(path.is_symlink() or not path.is_file() for path in (cert, key)):
+        raise ValueError("Place fullchain.pem and privkey.pem files in certs/full-stack/nginx; copy them rather than symlinking")
+    for domain in (settings["HOURS_DOMAIN"], settings["AUTH_DOMAIN"]):
+        openssl("verify", *(["-CAfile", ca] if ca else []), "-untrusted", cert, "-verify_hostname", domain, cert)
+    openssl("x509", "-checkend", "86400", "-noout", "-in", cert)
+    if openssl("x509", "-in", cert, "-pubkey", "-noout") != openssl("pkey", "-in", key, "-pubout"):
+        raise ValueError("nginx certificate and private key do not match")
+    public.chmod(0o500)
+    cert.chmod(0o444)
+    key.chmod(0o400)
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        os.chown(public, 101, 101)
+        os.chown(key, 101, 101)
 
 
 def compose_command(private=PRIVATE):
@@ -201,7 +228,7 @@ def wait_ready(settings, private, test, timeout=300):
         if ready:
             return
         time.sleep(3)
-    raise RuntimeError("HTTPS readiness timed out; check DNS, inbound TCP443, Docker status and certificate issuance")
+    raise RuntimeError("HTTPS readiness timed out; check local DNS, Docker status and nginx TLS configuration")
 
 
 def main(argv=None):
@@ -216,7 +243,7 @@ def main(argv=None):
     if os.geteuid() != 0:
         raise ValueError("Run with sudo so TLS keys can be owned by their container UIDs")
     # Root must not follow an attacker-controlled deployment-directory symlink.
-    for path in (ROOT / ".private", PRIVATE):
+    for path in (ROOT / ".private", PRIVATE, ROOT / "certs", CERTS):
         if path.is_symlink():
             raise ValueError("Private deployment directories must not be symlinks")
     if args.settings.resolve().parent != PRIVATE:
@@ -230,7 +257,12 @@ def main(argv=None):
         return
     if not shutil.which("docker"):
         raise ValueError("Install Docker Engine and its Compose plugin first")
+    verify_proxy_tls(settings, PRIVATE / "certs" if args.test else CERTS, PRIVATE / "pki/ca.pem" if args.test else None)
     subprocess.run(compose_command() + ["config", "--quiet"], check=True)
+    subprocess.run(compose_command() + ["up", "-d", "--build", "--wait", "--wait-timeout", "120", "postgres"], check=True)
+    # Official init scripts run only on empty volumes. Existing Keycloak installations
+    # also need the separate application role/database, without resetting Keycloak.
+    subprocess.run(compose_command() + ["exec", "-T", "postgres", "sh", "/docker-entrypoint-initdb.d/20-hoursbooster.sh"], check=True)
     command = compose_command() + ["up", "-d", "--build"]
     if args.renew_internal_tls:
         command.append("--force-recreate")

@@ -1,23 +1,28 @@
+x-logging: &logging
+  driver: local
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 services:
   proxy:
+    logging: *logging
     build:
       context: .
-      dockerfile: Dockerfile.caddy
+      dockerfile: Dockerfile.nginx
     environment:
       HOURS_DOMAIN: ${HOURS_DOMAIN:?Run setup.py}
       AUTH_DOMAIN: ${AUTH_DOMAIN:?Run setup.py}
     ports:
+      - '${HTTPS_BIND_IP:?Run setup.py}:80:80'
       - '${HTTPS_BIND_IP:?Run setup.py}:443:443'
     # Namespaced network setting permits UID1000 to bind443 without capabilities.
     sysctls:
       net.ipv4.ip_unprivileged_port_start: '0'
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ${PRIVATE_DIR:?Run setup.py}/tls.conf:/etc/caddy/tls.conf:ro
+      - ${PRIVATE_DIR:?Run setup.py}/nginx.conf:/etc/nginx/nginx.conf:ro
       - ${PRIVATE_DIR}/pki/ca.pem:/run/ca/ca.pem:ro
-      - ${PRIVATE_DIR}/pki/proxy:/run/tls:ro
-      - proxy-data:/data
-      - proxy-config:/config
+      - ${CERTS_DIR:?Run setup.py}/nginx:/run/tls:ro
     networks:
       edge:
         ipv4_address: ${PROXY_IP:?Run setup.py}
@@ -31,6 +36,7 @@ services:
     restart: unless-stopped
 
   vaporbooster:
+    logging: *logging
     build:
       context: ../..
       dockerfile: Dockerfile
@@ -46,7 +52,8 @@ services:
       STEAM_LOGIN_ENABLED: 'true'
       STEAM_ALLOWED_IDS: ${STEAM_ALLOWED_IDS:?Set SteamID64 allowlist}
       ALLOW_ANONYMOUS: 'false'
-      DATABASE_URL: file:/data/sqlite.db
+      DATABASE_URL: postgresql://hoursbooster:${APP_DB_PASSWORD:?Run setup.py}@postgres:5432/hoursbooster
+      DATABASE_CA_FILE: /run/tls/ca.pem
       HOST: 0.0.0.0
       PORT: '8443'
       TLS_CERT_FILE: /run/tls/fullchain.pem
@@ -55,9 +62,13 @@ services:
       NODE_EXTRA_CA_CERTS: /run/tls/ca.pem
       BETTER_AUTH_TELEMETRY: '0'
     volumes:
-      - app-data:/data
+      # Preserve the old SQLite volume read-only for backup/import.
+      - app-data:/data:ro
       - ${PRIVATE_DIR}/pki/vaporbooster:/run/tls:ro
-    networks: [edge]
+    networks: [edge, database]
+    depends_on:
+      postgres:
+        condition: service_healthy
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -65,6 +76,7 @@ services:
     restart: unless-stopped
 
   keycloak:
+    logging: *logging
     build:
       context: .
       dockerfile: Dockerfile.keycloak
@@ -101,6 +113,7 @@ services:
     restart: unless-stopped
 
   postgres:
+    logging: *logging
     build:
       context: .
       dockerfile: Dockerfile.postgres
@@ -109,6 +122,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run setup.py}
       KEYCLOAK_DB_PASSWORD: ${DB_PASSWORD}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Run setup.py}
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
     command:
       - postgres
@@ -124,14 +138,28 @@ services:
       - password_encryption=scram-sha-256
       - -c
       - ssl_min_protocol_version=TLSv1.2
+      # Keep SQL values/constraint details out of container logs.
+      - -c
+      - log_error_verbosity=terse
+      - -c
+      - log_min_error_statement=panic
+      - -c
+      - log_parameter_max_length=0
+      - -c
+      - log_parameter_max_length_on_error=0
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./init-database.sh:/docker-entrypoint-initdb.d/10-keycloak.sh:ro
+      - ./init-application.sh:/docker-entrypoint-initdb.d/20-hoursbooster.sh:ro
       - ${PRIVATE_DIR}/pki/postgres:/run/tls:ro
     networks: [database]
     healthcheck:
-      test: [CMD-SHELL, "psql -U keycloak -d keycloak -tAc 'SELECT 1' | grep -qx 1"]
+      test:
+        [
+          CMD-SHELL,
+          'PGPASSWORD="$$KEYCLOAK_DB_PASSWORD" PGSSLMODE=verify-full PGSSLROOTCERT=/run/tls/ca.pem psql -h postgres -U keycloak -d keycloak -tAc ''SELECT 1'' | grep -qx 1'
+        ]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -142,6 +170,32 @@ services:
       - /tmp:rw,noexec,nosuid,size=32m
       - /var/run/postgresql:rw,noexec,nosuid,uid=999,gid=999,size=8m
     restart: unless-stopped
+
+  sqlite-import:
+    profiles: [tools]
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: sqlite-importer
+    # Root only in this short-lived tool, so a root-owned 0600 backup is readable.
+    user: '0:0'
+    environment:
+      DATABASE_URL: postgresql://hoursbooster:${APP_DB_PASSWORD:?Run setup.py}@postgres:5432/hoursbooster
+      DATABASE_CA_FILE: /run/ca.pem
+    volumes:
+      - type: bind
+        # Mount the whole snapshot directory so committed WAL pages are included.
+        source: ${SQLITE_IMPORT_DIR:-${PRIVATE_DIR}/sqlite-backup}
+        target: /input
+        read_only: true
+        bind:
+          create_host_path: false
+      - ${PRIVATE_DIR}/pki/ca.pem:/run/ca.pem:ro
+    networks: [database]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m']
 
 networks:
   edge:
@@ -156,5 +210,3 @@ volumes:
   app-data:
   keycloak-data:
   postgres-data:
-  proxy-data:
-  proxy-config:
