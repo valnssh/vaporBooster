@@ -172,6 +172,11 @@ the `/data/sqlite.db` volume location and ensure it is owned by the container's
   needed by Steam and the configured identity/database services; this is not a network allowlist.
 
 Use Node 24 to run `pnpm test`, `pnpm check`, `pnpm lint`, and `pnpm build`.
+Use the pinned pnpm 10.10.0 so the patches in `package.json` are applied.
+SvelteKit 3.1.1 configuration lives in `vite.config.ts`; private runtime variables
+are declared in `src/env.ts`. The pinned Deno adapter includes a compatibility
+patch for SvelteKit 3 until upstream supports its builder API. Keep this patch
+when installing or rebuilding the service.
 TLS tests require OpenSSL on PATH, or `OPENSSL_BINARY` pointing to its executable.
 The security tests use a temporary SQLite database and fake Steam sessions, never
 real credentials or live Steam login. See `SECURITY_CHANGES.ru.md` for the Russian

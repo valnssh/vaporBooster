@@ -1,12 +1,12 @@
-import { auth, isAuthEnabled } from '$lib/auth';
+import { auth, isAuthEnabled } from '#lib/auth.ts';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { building } from '$app/environment';
-import { ready } from '$lib/server/setup';
-import type { Handle } from '@sveltejs/kit';
-import { config } from '$lib/server/config';
+import { building } from '$app/env';
+import { ready } from '#lib/server/setup.ts';
+import type { Handle } from '@sveltejs/kit/hooks';
+import { config } from '#lib/server/config.ts';
 import { error } from '@sveltejs/kit';
 
-import { createMockSession, createMockUser } from '$lib/server/mock';
+import { createMockSession, createMockUser } from '#lib/server/mock.ts';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	if (!building && event.url.protocol !== 'https:') error(400, 'HTTPS is required');

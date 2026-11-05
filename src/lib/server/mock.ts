@@ -1,4 +1,4 @@
-import { config } from '$lib/server/config';
+import { config } from '#lib/server/config.ts';
 
 export const createMockUser = () => ({
 	name: config.general.localAccountName,

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Modal from '$lib/components/ui/Modal.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
+	import Modal from '#lib/components/ui/Modal.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
 
 	interface Props {
 		title?: string;

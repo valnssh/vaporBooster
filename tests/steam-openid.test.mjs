@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { privateEnvModule } from './helpers/private-env.mjs';
 import { test, after, mock } from 'node:test';
 import { registerHooks } from 'node:module';
 import { mkdtempSync } from 'node:fs';
@@ -17,9 +18,8 @@ process.env.STEAM_ALLOWED_IDS = steamId;
 process.env.BETTER_AUTH_TELEMETRY = '0';
 registerHooks({
 	resolve(specifier, context, next) {
-		if (specifier === '$env/dynamic/private')
-			return { url: 'data:text/javascript,export const env=process.env', shortCircuit: true };
-		if (specifier.startsWith('$lib/'))
+		if (specifier === '$app/env/private') return privateEnvModule();
+		if (specifier.startsWith('#lib/'))
 			specifier = new URL(`src/lib/${specifier.slice(5)}`, root).href;
 		try {
 			return next(specifier, context);

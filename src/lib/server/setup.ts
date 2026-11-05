@@ -1,7 +1,7 @@
-import { steamManager } from '$lib/server/steam/manager';
+import { steamManager } from '#lib/server/steam/manager.ts';
 import { clearQrSessions } from './steam/session_store';
 import { validateConfig } from './config';
-import { building } from '$app/environment';
+import { building } from '$app/env';
 
 export const ready = building
 	? Promise.resolve()

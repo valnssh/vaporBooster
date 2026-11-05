@@ -1,6 +1,6 @@
 import type { LayoutServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
-import { isAuthEnabled } from '$lib/auth';
+import { isAuthEnabled } from '#lib/auth.ts';
 
 export const load: LayoutServerLoad = async ({ locals, url }) => {
 	const publicPaths = ['/login', '/api/auth'];

@@ -5,7 +5,7 @@ import {
 	isSteamLoginEnabled,
 	getOidcProviderName,
 	getOidcProviderId
-} from '$lib/auth';
+} from '#lib/auth.ts';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {
