@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import { config } from '$lib/server/config';
+import { config } from '#lib/server/config.ts';
 
 const ALGORITHM = 'aes-256-gcm';
 function key(legacy = false) {

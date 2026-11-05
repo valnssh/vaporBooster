@@ -8,6 +8,7 @@ import { join, relative, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createCipheriv } from 'node:crypto';
 import { createTlsFixture } from './helpers/tls-fixture.mjs';
+import { privateEnvModule } from './helpers/private-env.mjs';
 
 const root = new URL('../', import.meta.url);
 const scratchRoot = realpathSync(process.env.SECURITY_TEST_DIR || tmpdir());
@@ -20,10 +21,10 @@ process.env.ALLOW_ANONYMOUS = 'true';
 
 registerHooks({
 	resolve(specifier, context, next) {
-		if (specifier === '$env/dynamic/private') {
-			return { url: 'data:text/javascript,export const env = process.env', shortCircuit: true };
+		if (specifier === '$app/env/private') {
+			return privateEnvModule();
 		}
-		if (specifier.startsWith('$lib/'))
+		if (specifier.startsWith('#lib/'))
 			specifier = new URL(`src/lib/${specifier.slice(5)}`, root).href;
 		try {
 			return next(specifier, context);
@@ -461,7 +462,10 @@ test('patched dependencies preserve Steam APIs and the Better Auth database sche
 	const archive = new AdmZip(zip.toBuffer());
 	assert.equal(archive.readFile(archive.getEntries()[0]).toString(), 'test-only');
 	const cookie = createRequire(import.meta.resolve('@sveltejs/kit'))('cookie');
-	assert.equal(cookie.parse(cookie.serialize('session', 'test-only')).session, 'test-only');
+	assert.equal(
+		cookie.parseCookie(cookie.stringifySetCookie({ name: 'session', value: 'test-only' })).session,
+		'test-only'
+	);
 	const authRequire = createRequire(import.meta.resolve('better-auth'));
 	const { getAuthTables } = await import(
 		pathToFileURL(authRequire.resolve('@better-auth/core/db'))

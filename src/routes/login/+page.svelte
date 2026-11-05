@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import AnimatedBackground from '$lib/components/ui/AnimatedBackground.svelte';
-	import Logo from '$lib/components/ui/Logo.svelte';
-	import Card from '$lib/components/ui/Card.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import Icon from '$lib/components/icons/Icon.svelte';
-	import { authClient } from '$lib/client';
+	import AnimatedBackground from '#lib/components/ui/AnimatedBackground.svelte';
+	import Logo from '#lib/components/ui/Logo.svelte';
+	import Card from '#lib/components/ui/Card.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
+	import Spinner from '#lib/components/ui/Spinner.svelte';
+	import Icon from '#lib/components/icons/Icon.svelte';
+	import { authClient } from '#lib/client.ts';
 
 	let { data } = $props();
 	let loading = $state(false);

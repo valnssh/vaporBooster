@@ -22,6 +22,11 @@ jobs:
       - run: corepack enable && corepack prepare pnpm@10.10.0 --activate
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm test && pnpm check && pnpm lint && pnpm build
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.9.8
+      - name: Verify built HTTPS application in Deno
+        run: pnpm test:runtime
   full-stack:
     runs-on: ubuntu-24.04
     timeout-minutes: 25

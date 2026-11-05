@@ -238,7 +238,16 @@ try {
 				}
 			});
 		});
-		req.on('error', (failure) => (failure.code === 'ECONNRESET' ? done() : fail(failure)));
+		req.on('error', (failure) => {
+			const tlsAlert =
+				failure.code === 'HPE_INVALID_CONSTANT' &&
+				Buffer.isBuffer(failure.rawPacket) &&
+				failure.rawPacket.length >= 5 &&
+				failure.rawPacket[0] === 0x15 &&
+				failure.rawPacket[1] === 0x03;
+			if (failure.code === 'ECONNRESET' || tlsAlert) done();
+			else fail(failure);
+		});
 		req.setTimeout(5000, () => req.destroy(new Error('Plain HTTP test timed out')));
 		req.end();
 	});

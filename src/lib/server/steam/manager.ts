@@ -1,5 +1,5 @@
-import { db } from '$lib/database';
-import { steamAccount, steamChatMessage } from '$lib/server/steam/schema';
+import { db } from '#lib/database.ts';
+import { steamAccount, steamChatMessage } from '#lib/server/steam/schema.ts';
 import { SteamClient, type SteamClientStatus } from './client';
 import { eq } from 'drizzle-orm';
 import { encrypt, decrypt, encryptSharedSecret, decryptSharedSecret } from './crypto';

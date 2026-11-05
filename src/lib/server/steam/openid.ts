@@ -3,9 +3,9 @@ import { and, eq, gt, lt } from 'drizzle-orm';
 import type { BetterAuthPlugin, GenericEndpointContext } from 'better-auth';
 import { APIError, createAuthEndpoint, getAuthoritativeSessionFromCtx } from 'better-auth/api';
 import { expireCookie, setSessionCookie } from 'better-auth/cookies';
-import { db } from '$lib/database';
-import { verification } from '$lib/schema';
-import { config, isSteamLoginEnabled } from '$lib/server/config';
+import { db } from '#lib/database.ts';
+import { verification } from '#lib/schema.ts';
+import { config, isSteamLoginEnabled } from '#lib/server/config.ts';
 
 const endpoint = 'https://steamcommunity.com/openid/login';
 const namespace = 'http://specs.openid.net/auth/2.0'; // Protocol identifier, never fetched.

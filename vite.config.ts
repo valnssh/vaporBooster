@@ -1,5 +1,7 @@
 import devtoolsJson from 'vite-plugin-devtools-json';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import adapter from '@deno/svelte-adapter';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, loadEnv } from 'vite';
 import type { ViteDevServer, PreviewServer } from 'vite';
@@ -55,7 +57,10 @@ export default defineConfig(async ({ command, mode }) => {
 				}
 			},
 			tailwindcss(),
-			sveltekit(),
+			sveltekit({
+				adapter: adapter(),
+				preprocess: vitePreprocess()
+			}),
 			devtoolsJson()
 		],
 		server: {

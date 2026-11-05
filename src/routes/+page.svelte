@@ -1,19 +1,19 @@
 <script lang="ts">
-	import StatCard from '$lib/components/dashboard/StatCard.svelte';
-	import Icon from '$lib/components/icons/Icon.svelte';
-	import SteamAccountList from '$lib/components/steam/SteamAccountList.svelte';
-	import AddAccountModal from '$lib/components/steam/AddAccountModal.svelte';
-	import AccountSettingsModal from '$lib/components/steam/AccountSettingsModal.svelte';
-	import MessagesModal from '$lib/components/steam/MessagesModal.svelte';
-	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
-	import Logo from '$lib/components/ui/Logo.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import { authClient } from '$lib/client';
+	import StatCard from '#lib/components/dashboard/StatCard.svelte';
+	import Icon from '#lib/components/icons/Icon.svelte';
+	import SteamAccountList from '#lib/components/steam/SteamAccountList.svelte';
+	import AddAccountModal from '#lib/components/steam/AddAccountModal.svelte';
+	import AccountSettingsModal from '#lib/components/steam/AccountSettingsModal.svelte';
+	import MessagesModal from '#lib/components/steam/MessagesModal.svelte';
+	import ConfirmModal from '#lib/components/ui/ConfirmModal.svelte';
+	import Logo from '#lib/components/ui/Logo.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
+	import { authClient } from '#lib/client.ts';
 	import { goto, invalidateAll } from '$app/navigation';
 
 	import { onMount, onDestroy } from 'svelte';
 
-	import SteamGuardModal from '$lib/components/steam/SteamGuardModal.svelte';
+	import SteamGuardModal from '#lib/components/steam/SteamGuardModal.svelte';
 
 	let { data } = $props();
 	let showAddModal = $state(false);

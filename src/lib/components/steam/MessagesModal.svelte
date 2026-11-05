@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { slide } from 'svelte/transition';
-	import Modal from '$lib/components/ui/Modal.svelte';
-	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
-	import Icon from '$lib/components/icons/Icon.svelte';
+	import Modal from '#lib/components/ui/Modal.svelte';
+	import ConfirmModal from '#lib/components/ui/ConfirmModal.svelte';
+	import Icon from '#lib/components/icons/Icon.svelte';
 
 	let { account, messages = [], onClose } = $props();
 

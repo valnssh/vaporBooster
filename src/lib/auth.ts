@@ -3,11 +3,11 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { genericOAuth } from 'better-auth/plugins';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { getRequestEvent } from '$app/server';
-import { building } from '$app/environment';
+import { building } from '$app/env';
 import { db } from './database';
-import { config, isOidcEnabled as isOidcConfigured } from '$lib/server/config';
-import { steamOpenId } from '$lib/server/steam/openid';
-export { isAuthEnabled, isSteamLoginEnabled } from '$lib/server/config';
+import { config, isOidcEnabled as isOidcConfigured } from '#lib/server/config.ts';
+import { steamOpenId } from '#lib/server/steam/openid.ts';
+export { isAuthEnabled, isSteamLoginEnabled } from '#lib/server/config.ts';
 
 const oidcConfig = isOidcConfigured()
 	? [

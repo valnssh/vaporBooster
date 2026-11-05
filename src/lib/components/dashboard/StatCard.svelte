@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Card from '$lib/components/ui/Card.svelte';
+	import Card from '#lib/components/ui/Card.svelte';
 	let { label, value, staggerIndex = 1, icon } = $props();
 </script>
 

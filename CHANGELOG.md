@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Upgrade SvelteKit to 3.1.1 and move configuration into the Vite plugin.
+- Use native `#lib` imports and explicit private, runtime-only environment variables.
+- Patch the pinned Deno adapter for the SvelteKit 3 builder and server-instance APIs,
+  preserving the existing HTTPS launcher, data volumes and authentication checks.
+- Update cookie and TLS regression checks for the current dependency APIs.
+
 ## v0.0.5
 
 - Add a Debian full-stack installer for HoursBooster, Keycloak, PostgreSQL and

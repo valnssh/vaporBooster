@@ -1,4 +1,4 @@
-import { env } from '$env/dynamic/private';
+import * as env from '$app/env/private';
 import { validateHttpsEnvironment } from '../../../scripts/https.mjs';
 
 export const config = {

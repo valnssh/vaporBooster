@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import AnimatedBackground from '$lib/components/ui/AnimatedBackground.svelte';
+	import AnimatedBackground from '#lib/components/ui/AnimatedBackground.svelte';
 
 	let { children, data } = $props();
 </script>

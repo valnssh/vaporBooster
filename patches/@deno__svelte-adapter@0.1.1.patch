@@ -1,0 +1,38 @@
+diff --git a/dist/index.js b/dist/index.js
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -8,5 +8,5 @@ export default function denoAdapter() {
+             builder.rimraf(OUT_DIR);
+             const dirs = {
+-                static: `${OUT_DIR}/static${builder.config.kit.paths.base}`,
++                static: `${OUT_DIR}/static${builder.config.paths.base}`,
+                 server: `${OUT_DIR}/server`,
+             };
+@@ -23,4 +23,5 @@ export default function denoAdapter() {
+             builder.log.minor("Building server entry...");
+             builder.writeServer(dirs.server);
++            builder.generateServerInstance(`${dirs.server}/instance.js`, { serverDirectory: dirs.server });
+             const staticFiles = [];
+             const redirects = [];
+@@ -65,5 +66,5 @@ export default function denoAdapter() {
+             });
+             // Collect all remaining asset files
+-            const assetDir = builder.config.kit.files.assets;
++            const assetDir = builder.config.files.assets;
+             // TODO: What about generated assets
+             const assets = [];
+diff --git a/dist/files/handler.ts b/dist/files/handler.ts
+--- a/dist/files/handler.ts
++++ b/dist/files/handler.ts
+@@ -1,4 +1,3 @@
+-import { Server } from "./server/index.js";
+-import { manifest } from "./server/manifest.js";
++import { server } from "./server/instance.js";
+ import {
+   applyConfig,
+@@ -49,5 +48,4 @@ export function prepareServer(
+ 
+   const deployConfig = parseConfig(rawDeployConfig, cwd);
+-  const server = new Server(manifest);
+ 
+   const initialized = server.init({

@@ -1,13 +1,13 @@
 import { fail, error } from '@sveltejs/kit';
-import { db } from '$lib/database';
-import { steamAccount, steamChatMessage } from '$lib/server/steam/schema';
-import { steamManager } from '$lib/server/steam/manager';
+import { db } from '#lib/database.ts';
+import { steamAccount, steamChatMessage } from '#lib/server/steam/schema.ts';
+import { steamManager } from '#lib/server/steam/manager.ts';
 import { eq, and, desc } from 'drizzle-orm';
 import type { PageServerLoad, Actions } from './$types';
-import { requestOwnerId, ownerFilter, requireAccount, formText } from '$lib/server/access';
-import { startQrSession, takeQrResult, cancelQrSession } from '$lib/server/steam/session_store';
-import { encrypt, encryptSharedSecret } from '$lib/server/steam/crypto';
-import { isSteamLoginEnabled } from '$lib/server/config';
+import { requestOwnerId, ownerFilter, requireAccount, formText } from '#lib/server/access.ts';
+import { startQrSession, takeQrResult, cancelQrSession } from '#lib/server/steam/session_store.ts';
+import { encrypt, encryptSharedSecret } from '#lib/server/steam/crypto.ts';
+import { isSteamLoginEnabled } from '#lib/server/config.ts';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const ownerId = requestOwnerId(locals);

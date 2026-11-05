@@ -3,17 +3,25 @@
 	"private": true,
 	"version": "0.0.5",
 	"type": "module",
+	"imports": {
+		"#lib/*": "./src/lib/*"
+	},
 	"packageManager": "pnpm@10.10.0",
 	"pnpm": {
 		"patchedDependencies": {
+			"@deno/svelte-adapter@0.1.1": "patches/@deno__svelte-adapter@0.1.1.patch",
 			"steam-session@1.9.4": "patches/steam-session@1.9.4.patch",
 			"steam-user@5.3.0": "patches/steam-user@5.3.0.patch"
 		},
 		"overrides": {
 			"@esbuild-kit/core-utils>esbuild": "0.28.1",
 			"steam-appticket>protobufjs": "7.6.6",
-			"steam-user>adm-zip": "0.6.1",
-			"@sveltejs/kit>cookie": "0.7.2"
+			"steam-user>adm-zip": "0.6.1"
+		},
+		"peerDependencyRules": {
+			"allowedVersions": {
+				"@deno/svelte-adapter>@sveltejs/kit": "3.1.1"
+			}
 		}
 	},
 	"scripts": {
@@ -33,7 +41,7 @@
 	},
 	"devDependencies": {
 		"@deno/svelte-adapter": "0.1.1",
-		"@sveltejs/kit": "2.70.3",
+		"@sveltejs/kit": "3.1.1",
 		"@sveltejs/vite-plugin-svelte": "7.3.1",
 		"@types/qrcode": "1.5.6",
 		"drizzle-kit": "0.31.11",

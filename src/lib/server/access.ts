@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { and, eq, isNull } from 'drizzle-orm';
-import { db } from '$lib/database';
+import { db } from '#lib/database.ts';
 import { steamAccount } from './steam/schema';
 import { config, isAuthEnabled } from './config';
 
