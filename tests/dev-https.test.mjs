@@ -1,3 +1,5 @@
+import { configureTestDatabase } from './helpers/postgres.mjs';
+const testDb = await configureTestDatabase();
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer as createNetServer } from 'node:net';
@@ -43,7 +45,8 @@ test('development HTTPS never serves public PEM or configured extensionless priv
 			ORIGIN: `https://localhost:${port}`,
 			BETTER_AUTH_SECRET: 'synthetic-dev-test-only-secret-0123456789abcdefgh',
 			ALLOW_ANONYMOUS: 'true',
-			DATABASE_URL: 'file::memory:'
+			DATABASE_URL: testDb.url,
+			DATABASE_CA_FILE: testDb.caFile
 		});
 		const { createServer } = await import('vite');
 		vite = await createServer({ server: { host: '127.0.0.1', port, strictPort: true } });
@@ -103,5 +106,6 @@ test('development HTTPS never serves public PEM or configured extensionless priv
 			retryDelay: 100
 		});
 		await tls.cleanup();
+		await testDb.cleanup();
 	}
 });

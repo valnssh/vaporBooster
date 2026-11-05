@@ -204,12 +204,7 @@ class SteamManager {
 
 	public async stopAccount(id: string) {
 		return this.serialize(id, async () => {
-			const client = this.clients.get(id);
-			this.clients.delete(id);
-			if (client) {
-				client.removeAllListeners();
-				await client.logOff();
-			}
+			await this.disconnect(id);
 			await db
 				.update(steamAccount)
 				.set({ status: 'IDLE', latestBoostStartedAt: null })
@@ -219,7 +214,19 @@ class SteamManager {
 
 	public async stopAll() {
 		console.log('[SteamManager] Stopping all accounts...');
-		await Promise.all([...this.clients.keys()].map((id) => this.stopAccount(id)));
+		// A process shutdown must preserve ONLINE/BOOSTING for automatic recovery.
+		await Promise.all(
+			[...this.clients.keys()].map((id) => this.serialize(id, () => this.disconnect(id)))
+		);
+	}
+
+	private async disconnect(id: string) {
+		const client = this.clients.get(id);
+		this.clients.delete(id);
+		if (client) {
+			client.removeAllListeners();
+			await client.logOff();
+		}
 	}
 
 	public async submitCode(id: string, code: string) {

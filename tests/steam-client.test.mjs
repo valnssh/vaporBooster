@@ -1,3 +1,5 @@
+import { configureTestDatabase } from './helpers/postgres.mjs';
+const testDb = await configureTestDatabase();
 import assert from 'node:assert/strict';
 import { privateEnvModule } from './helpers/private-env.mjs';
 import { test, mock, after } from 'node:test';
@@ -231,11 +233,12 @@ test('games and persona settings use the supported SteamUser call formats after 
 	await instance.logOff();
 });
 
-// Manager tests retain the real SQLite schema and encryption. Only Steam sessions are fake.
-process.env.DATABASE_URL = 'file::memory:';
+// Manager tests retain the real PostgreSQL schema and encryption. Only Steam sessions are fake.
 process.env.BETTER_AUTH_SECRET = 'steam-tests-only-master-secret-0123456789abcdefgh';
 registerHooks({
 	resolve(specifier, context, next) {
+		if (specifier === '$app/env')
+			return { url: 'data:text/javascript,export const building=false;', shortCircuit: true };
 		if (specifier === '$app/env/private') return privateEnvModule();
 		if (specifier.startsWith('#lib/'))
 			specifier = new URL(`src/lib/${specifier.slice(5)}`, root).href;
@@ -283,17 +286,16 @@ class FakeSteamClient extends EventEmitter {
 mock.module(new URL('src/lib/server/steam/client.ts', root).href, {
 	namedExports: { SteamClient: FakeSteamClient }
 });
-const { db } = await import('../src/lib/database.ts');
+const { db, pool } = await import('../src/lib/database.ts');
 const { steamAccount, steamChatMessage } = await import('../src/lib/server/steam/schema.ts');
 const { eq } = await import('drizzle-orm');
 const { encrypt, decrypt } = await import('../src/lib/server/steam/crypto.ts');
-await db.$client.executeMultiple(
-	readFileSync(new URL('../drizzle/0000_known_supernaut.sql', import.meta.url), 'utf8')
-);
+await import('../scripts/migrate.mjs');
 const { steamManager } = await import('../src/lib/server/steam/manager.ts');
 after(async () => {
 	await steamManager.stopAll();
-	db.$client.close();
+	await pool.end();
+	await testDb.cleanup();
 });
 
 test('manager serializes duplicate starts and stop-restart, ignoring retired session events', async () => {
@@ -342,6 +344,35 @@ test('manager serializes duplicate starts and stop-restart, ignoring retired ses
 	assert.equal(steamManager.getClientStatus(account.id), 'ONLINE');
 	await steamManager.stopAccount(account.id);
 	assert.equal((await db.select().from(steamAccount))[0].status, 'IDLE');
+});
+
+test('shutdown preserves active account state for restart, while a manual stop persists IDLE', async () => {
+	const id = 'restart-account';
+	const encrypted = encrypt(token());
+	await db.insert(steamAccount).values({
+		id,
+		accountName: id,
+		games: [730],
+		refreshToken: encrypted.content,
+		iv: encrypted.iv,
+		authTag: encrypted.authTag
+	});
+	await steamManager.startAccount(id);
+	const started = new Date(1700000000123);
+	await db
+		.update(steamAccount)
+		.set({ status: 'BOOSTING', latestBoostStartedAt: started })
+		.where(eq(steamAccount.id, id));
+	await steamManager.stopAll();
+	let row = await db.query.steamAccount.findFirst({ where: eq(steamAccount.id, id) });
+	assert.equal(row.status, 'BOOSTING');
+	assert.equal(row.latestBoostStartedAt.getTime(), started.getTime());
+	await steamManager.init();
+	assert.equal(steamManager.getClientStatus(id), 'CONNECTING');
+	await steamManager.stopAccount(id);
+	row = await db.query.steamAccount.findFirst({ where: eq(steamAccount.id, id) });
+	assert.equal(row.status, 'IDLE');
+	assert.equal(row.latestBoostStartedAt, null);
 });
 
 test('manager logs omit account identity, credentials and chat during startup and updates', async (t) => {

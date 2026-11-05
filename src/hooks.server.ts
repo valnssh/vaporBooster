@@ -2,11 +2,17 @@ import { auth, isAuthEnabled } from '#lib/auth.ts';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { building } from '$app/env';
 import { ready } from '#lib/server/setup.ts';
-import type { Handle } from '@sveltejs/kit/hooks';
+import type { Handle, HandleServerError } from '@sveltejs/kit/hooks';
 import { config } from '#lib/server/config.ts';
 import { error } from '@sveltejs/kit';
 
 import { createMockSession, createMockUser } from '#lib/server/mock.ts';
+
+// Database exceptions may contain statement parameters, including credentials.
+export const handleError: HandleServerError = () => {
+	console.error('Request processing failed; check service health');
+	return { message: 'Internal server error' };
+};
 
 export const handle: Handle = async ({ event, resolve }) => {
 	if (!building && event.url.protocol !== 'https:') error(400, 'HTTPS is required');

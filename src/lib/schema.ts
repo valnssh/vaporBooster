@@ -1,31 +1,42 @@
 import { relations, sql } from 'drizzle-orm';
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+	pgTable,
+	text,
+	boolean,
+	timestamp,
+	integer,
+	jsonb,
+	index,
+	uniqueIndex
+} from 'drizzle-orm/pg-core';
 
-export const user = sqliteTable('user', {
+export const sqliteImport = pgTable('_hoursbooster_sqlite_import', {
+	id: integer('id').primaryKey(),
+	report: jsonb('report').notNull(),
+	createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).defaultNow().notNull()
+});
+
+export const user = pgTable('user', {
 	id: text('id').primaryKey(),
 	name: text('name').notNull(),
 	email: text('email').notNull().unique(),
-	emailVerified: integer('email_verified', { mode: 'boolean' }).default(false).notNull(),
+	emailVerified: boolean('email_verified').default(false).notNull(),
 	image: text('image'),
-	createdAt: integer('created_at', { mode: 'timestamp_ms' })
-		.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-		.notNull(),
-	updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-		.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+	createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).defaultNow().notNull(),
+	updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 })
+		.defaultNow()
 		.$onUpdate(() => new Date())
 		.notNull()
 });
 
-export const session = sqliteTable(
+export const session = pgTable(
 	'session',
 	{
 		id: text('id').primaryKey(),
-		expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+		expiresAt: timestamp('expires_at', { withTimezone: true, precision: 3 }).notNull(),
 		token: text('token').notNull().unique(),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' })
-			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-			.notNull(),
-		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+		createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 })
 			.$onUpdate(() => new Date())
 			.notNull(),
 		ipAddress: text('ip_address'),
@@ -37,7 +48,7 @@ export const session = sqliteTable(
 	(table) => [index('session_userId_idx').on(table.userId)]
 );
 
-export const account = sqliteTable(
+export const account = pgTable(
 	'account',
 	{
 		id: text('id').primaryKey(),
@@ -49,18 +60,18 @@ export const account = sqliteTable(
 		accessToken: text('access_token'),
 		refreshToken: text('refresh_token'),
 		idToken: text('id_token'),
-		accessTokenExpiresAt: integer('access_token_expires_at', {
-			mode: 'timestamp_ms'
+		accessTokenExpiresAt: timestamp('access_token_expires_at', {
+			withTimezone: true,
+			precision: 3
 		}),
-		refreshTokenExpiresAt: integer('refresh_token_expires_at', {
-			mode: 'timestamp_ms'
+		refreshTokenExpiresAt: timestamp('refresh_token_expires_at', {
+			withTimezone: true,
+			precision: 3
 		}),
 		scope: text('scope'),
 		password: text('password'),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' })
-			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-			.notNull(),
-		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+		createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 })
 			.$onUpdate(() => new Date())
 			.notNull()
 	},
@@ -72,18 +83,16 @@ export const account = sqliteTable(
 	]
 );
 
-export const verification = sqliteTable(
+export const verification = pgTable(
 	'verification',
 	{
 		id: text('id').primaryKey(),
 		identifier: text('identifier').notNull(),
 		value: text('value').notNull(),
-		expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-		createdAt: integer('created_at', { mode: 'timestamp_ms' })
-			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-			.notNull(),
-		updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
-			.default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+		expiresAt: timestamp('expires_at', { withTimezone: true, precision: 3 }).notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).defaultNow().notNull(),
+		updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 })
+			.defaultNow()
 			.$onUpdate(() => new Date())
 			.notNull()
 	},

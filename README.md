@@ -4,7 +4,7 @@
 
 # vaporBooster
 
-Version **v0.0.5** — HTTPS-only. See [release changes](CHANGELOG.md).
+Version **v0.0.5** вЂ” HTTPS-only. See [release changes](CHANGELOG.md).
 
 ### Simple, fast and reliable hour booster for the Steam platform.
 
@@ -19,8 +19,8 @@ Version **v0.0.5** — HTTPS-only. See [release changes](CHANGELOG.md).
 
 ## Editors and contributors
 
-- **[valnssh/vaporBooster](https://github.com/valnssh/vaporBooster)** — original project.
-- **Codex (OpenAI)** — AI coding assistant used to prepare this fork's security
+- **[valnssh/vaporBooster](https://github.com/valnssh/vaporBooster)** вЂ” original project.
+- **Codex (OpenAI)** вЂ” AI coding assistant used to prepare this fork's security
   review and hardening, HTTPS configuration, Steam integration fixes and regression tests.
 
 ---
@@ -44,6 +44,8 @@ Version **v0.0.5** — HTTPS-only. See [release changes](CHANGELOG.md).
 ## Deploy
 
 For Debian 13, see the [Russian deployment guide](DEPLOY_DEBIAN13.ru.md).
+Application data now requires PostgreSQL. Existing SQLite installations must follow
+the [verified migration guide](MIGRATE_POSTGRESQL.ru.md) before starting this version.
 
 For a complete installation with Keycloak, PostgreSQL and a reverse proxy on two
 HTTPS domains, use the [full-stack installation guide](DEPLOY_FULL_STACK.ru.md).
@@ -79,6 +81,11 @@ and image builds. Missing or invalid TLS credentials stop startup.
 
 ### 2. Start with Docker Compose
 
+Set `DATABASE_URL` to a dedicated PostgreSQL database and place its trusted CA
+certificate at `certs/database-ca.pem` for standalone Compose. TLS verification
+is mandatory; URL query parameters cannot override it. The full-stack installer
+creates both databases, restricted roles and private TLS settings automatically.
+
 Configure the OIDC variables below before starting. Authentication is required by default.
 For a trusted local-only instance without OIDC, explicitly set `ALLOW_ANONYMOUS=true`.
 Partial OIDC configuration is rejected rather than falling back to anonymous access.
@@ -93,9 +100,10 @@ The application is available at **https://YOUR-DOMAIN** using the configured cer
 
 Compose publishes only HTTPS port 443 and binds to `127.0.0.1` by default.
 For public access, configure OIDC and explicitly set `HTTPS_BIND_IP=0.0.0.0`.
-Deno serves TLS directly; no internal HTTP or HTTP redirect is needed. The database lives in the
-`vaporbooster-data` volume and is initialized at runtime; no database or `.env`
-file is copied into the image.
+In the standalone Compose file Deno serves TLS directly. The complete stack uses
+Nginx with HTTP-to-HTTPS redirects and supplied certificates. Data lives in a
+dedicated PostgreSQL database; the old `vaporbooster-data` SQLite volume is kept
+read-only for migration/recovery. No database, backup or `.env` is copied into images.
 
 ---
 
@@ -144,11 +152,11 @@ All legacy plaintext Steam Guard seeds, including idle accounts, are encrypted
 during initialization. Old database backups and SQLite pages may still contain
 previous plaintext; this migration is not secure erasure of historical copies.
 
-For a non-Docker installation, set `DATABASE_URL` to the existing SQLite file and
-run `pnpm migrate` before starting. The initial migration supports the original
-schema without dropping data. For Docker, import the backed-up SQLite file into
-the `/data/sqlite.db` volume location and ensure it is owned by the container's
-`deno` user before starting. Never build or publish an image containing live data.
+Use the [SQLite → PostgreSQL migration guide](MIGRATE_POSTGRESQL.ru.md).
+The importer preserves every supported table, verifies row contents and sequence
+values, and refuses a nonempty target or a duplicate import. It never deletes
+history. Keep the source backup and original encryption key. A legacy SQLite
+file blocks runtime startup until the import has been verified.
 
 ## Security changes and checks
 
@@ -178,8 +186,21 @@ are declared in `src/env.ts`. The pinned Deno adapter includes a compatibility
 patch for SvelteKit 3 until upstream supports its builder API. Keep this patch
 when installing or rebuilding the service.
 TLS tests require OpenSSL on PATH, or `OPENSSL_BINARY` pointing to its executable.
-The security tests use a temporary SQLite database and fake Steam sessions, never
-real credentials or live Steam login. See `SECURITY_CHANGES.ru.md` for the Russian
+Start the disposable TLS PostgreSQL instance before integration tests:
+
+```bash
+sh tests/start-postgres.sh
+. .private/postgres-test/env
+pnpm test
+pnpm check && pnpm lint && pnpm build
+pnpm test:runtime
+docker rm -f -v hoursbooster-postgres-test
+```
+
+Each test suite gets a separate PostgreSQL database; the test helper refuses
+admin URLs whose database is not named `hoursbooster_test`. SQLite is used only
+by migration fixtures through Node's built-in `node:sqlite`, never by the running
+application. Steam sessions are synthetic, without real account credentials. See `SECURITY_CHANGES.ru.md` for the Russian
 change summary and deployment limitations.
 
 Steam integration and lifecycle checks are documented in

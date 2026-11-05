@@ -2,7 +2,7 @@ import { fail, error } from '@sveltejs/kit';
 import { db } from '#lib/database.ts';
 import { steamAccount, steamChatMessage } from '#lib/server/steam/schema.ts';
 import { steamManager } from '#lib/server/steam/manager.ts';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import type { PageServerLoad, Actions } from './$types';
 import { requestOwnerId, ownerFilter, requireAccount, formText } from '#lib/server/access.ts';
 import { startQrSession, takeQrResult, cancelQrSession } from '#lib/server/steam/session_store.ts';
@@ -29,15 +29,33 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		.where(ownerFilter(ownerId));
 	const runtimeStatuses = await steamManager.getAllStatuses();
 	const messages: Record<string, unknown[]> = {};
-	for (const account of accounts) {
-		const rows = await db
-			.select()
-			.from(steamChatMessage)
-			.where(eq(steamChatMessage.accountId, account.id))
-			.orderBy(desc(steamChatMessage.timestamp))
-			.limit(50);
-		messages[account.id] = rows.reverse();
-	}
+	for (const account of accounts) messages[account.id] = [];
+	// The index supplies the latest 50 rows per account; history is never deleted.
+	const recent = db
+		.select()
+		.from(steamChatMessage)
+		.where(eq(steamChatMessage.accountId, steamAccount.id))
+		.orderBy(desc(steamChatMessage.timestamp), desc(steamChatMessage.id))
+		.limit(50)
+		.as('recent');
+	const rows = await db
+		.select({
+			accountId: steamAccount.id,
+			message: {
+				id: recent.id,
+				accountId: recent.accountId,
+				steamIdOther: recent.steamIdOther,
+				senderName: recent.senderName,
+				content: recent.content,
+				direction: recent.direction,
+				timestamp: recent.timestamp
+			}
+		})
+		.from(steamAccount)
+		.innerJoinLateral(recent, sql`true`)
+		.where(ownerFilter(ownerId))
+		.orderBy(asc(recent.timestamp), asc(recent.id));
+	for (const row of rows) messages[row.accountId]?.push(row.message);
 	return {
 		steamLoginEnabled: isSteamLoginEnabled(),
 		steamLinkStatus:

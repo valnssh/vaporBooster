@@ -1,3 +1,5 @@
+import { configureTestDatabase } from './helpers/postgres.mjs';
+const testDb = await configureTestDatabase();
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -40,8 +42,7 @@ async function unusedPort() {
 const port = await unusedPort();
 const base = `https://127.0.0.1:${port}/`;
 const origin = new URL(base).origin;
-function launch(overrides = {}, database = 'test.db') {
-	const databaseFile = join(scratch, database);
+function launch(overrides = {}) {
 	const child = spawn(
 		process.env.DENO_BINARY || 'deno',
 		[
@@ -51,7 +52,7 @@ function launch(overrides = {}, database = 'test.db') {
 			'--allow-env',
 			'--allow-net',
 			'--allow-sys',
-			`--allow-read=${portable(root)},${portable(scratch)},${portable(tls.directory)}`,
+			`--allow-read=${portable(root)},${portable(scratch)},${portable(tls.directory)},${portable(testDb.caFile)}`,
 			`--allow-write=${portable(scratch)}`,
 			`--allow-ffi=${portable(join(root, 'node_modules'))}`,
 			'scripts/start.ts'
@@ -64,7 +65,8 @@ function launch(overrides = {}, database = 'test.db') {
 				...process.env,
 				HOST: '127.0.0.1',
 				PORT: String(port),
-				DATABASE_URL: `file:${portable(databaseFile)}`,
+				DATABASE_URL: testDb.url,
+				DATABASE_CA_FILE: testDb.caFile,
 				DENO_DIR: join(scratch, 'cache'),
 				BETTER_AUTH_SECRET: `synthetic-runtime-test-only-${randomUUID()}`,
 				BETTER_AUTH_URL: origin,
@@ -92,7 +94,7 @@ function launch(overrides = {}, database = 'test.db') {
 	return {
 		child,
 		closed,
-		databaseFile,
+
 		get output() {
 			return output;
 		},
@@ -139,7 +141,7 @@ function request(
 }
 
 async function rejectedStartup(overrides, name, beforeMigration = false) {
-	const running = launch(overrides, `${name}.db`);
+	const running = launch(overrides);
 	let timer;
 	try {
 		const exit = await Promise.race([
@@ -150,13 +152,6 @@ async function rejectedStartup(overrides, name, beforeMigration = false) {
 		assert.notEqual(exit, 'timeout', `Invalid ${name} configuration did not stop startup`);
 		assert.notEqual(exit, 0, `Invalid ${name} configuration was accepted`);
 		assert.doesNotMatch(running.output, /Listening on /);
-		if (beforeMigration) {
-			await assert.rejects(
-				stat(running.databaseFile),
-				{ code: 'ENOENT' },
-				`${name} touched the database`
-			);
-		}
 	} finally {
 		clearTimeout(timer);
 		if (running.child.exitCode === null) running.child.kill();
@@ -577,6 +572,7 @@ try {
 		oidcStub.closeAllConnections();
 		await new Promise((done) => oidcStub.close(done));
 	}
+	await testDb.cleanup();
 	agent.destroy();
 	await tls.cleanup();
 	await rm(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

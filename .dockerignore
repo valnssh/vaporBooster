@@ -3,6 +3,10 @@
 **/*.py[cod]
 .private
 certs
+backups
+**/*.dump
+**/*.dump.*
+**/*.sql.gz
 **/*.pem
 **/*.key
 **/*.p12
