@@ -4,7 +4,7 @@
 
 # vaporBooster
 
-Version **v0.0.5** вЂ” HTTPS-only. See [release changes](CHANGELOG.md).
+Version **v0.0.5**  HTTPS-only. See [release changes](CHANGELOG.md).
 
 ### Simple, fast and reliable hour booster for the Steam platform.
 
@@ -19,8 +19,8 @@ Version **v0.0.5** вЂ” HTTPS-only. See [release changes](CHANGELOG.md).
 
 ## Editors and contributors
 
-- **[valnssh/vaporBooster](https://github.com/valnssh/vaporBooster)** вЂ” original project.
-- **Codex (OpenAI)** вЂ” AI coding assistant used to prepare this fork's security
+- **[valnssh/vaporBooster](https://github.com/valnssh/vaporBooster)**  original project.
+- **Codex (OpenAI)**  AI coding assistant used to prepare this fork's security
   review and hardening, HTTPS configuration, Steam integration fixes and regression tests.
 
 ---
