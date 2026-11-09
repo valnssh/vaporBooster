@@ -1,0 +1,16 @@
+diff --git a/components/09-logon.js b/components/09-logon.js
+--- a/components/09-logon.js
++++ b/components/09-logon.js
+@@ -341,6 +341,12 @@
+ 			serverList = serverList.filter(s => s.type == 'websockets' && s.endpoint.endsWith(':443'));
+ 		}
+ 
++		if (serverList.length == 0) {
++			this._cleanupClosedConnection();
++			this.emit('error', new Error('No compatible secure Steam servers available'));
++			return;
++		}
++
+ 		// Disqualify any CMs that we've blacklisted
+ 		let dqServerList = serverList.filter(s => !this._ttlCache.get(`CM_DQ_${s.type}_${s.endpoint}`));
+ 		if (dqServerList.length == 0) {

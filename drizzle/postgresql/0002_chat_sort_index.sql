@@ -1,0 +1,2 @@
+DROP INDEX "steam_chat_account_time_idx";--> statement-breakpoint
+CREATE INDEX "steam_chat_account_time_idx" ON "steam_chat_message" USING btree ("account_id","timestamp" DESC NULLS FIRST,"id" DESC NULLS FIRST);

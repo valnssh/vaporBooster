@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import AnimatedBackground from '$lib/components/ui/AnimatedBackground.svelte';
-	import Logo from '$lib/components/ui/Logo.svelte';
-	import Card from '$lib/components/ui/Card.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
-	import Icon from '$lib/components/icons/Icon.svelte';
-	import { authClient } from '$lib/client';
+	import AnimatedBackground from '#lib/components/ui/AnimatedBackground.svelte';
+	import Logo from '#lib/components/ui/Logo.svelte';
+	import Card from '#lib/components/ui/Card.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
+	import Spinner from '#lib/components/ui/Spinner.svelte';
+	import Icon from '#lib/components/icons/Icon.svelte';
+	import { authClient } from '#lib/client.ts';
 
 	let { data } = $props();
 	let loading = $state(false);
@@ -16,18 +16,36 @@
 		loading = true;
 		error = null;
 		try {
-			await authClient.signIn.oauth2({
-				providerId: data.oidcProviderId!
+			const result = await authClient.signIn.social({
+				provider: data.oidcProviderId!
 			});
-		} catch (err: any) {
-			console.error('OIDC Login error:', err);
-			error = err.message || 'Failed to start OIDC login';
+			if (result.error) throw new Error();
+		} catch {
+			error = 'Failed to start OIDC login';
+			loading = false;
+		}
+	}
+
+	async function handleSteamLogin() {
+		loading = true;
+		error = null;
+		try {
+			const response = await fetch('/api/auth/sign-in/steam', { method: 'POST' });
+			if (!response.ok) throw new Error();
+			const result = await response.json();
+			window.location.assign(result.url);
+		} catch {
+			error = 'Failed to start Steam sign-in. Please retry.';
 			loading = false;
 		}
 	}
 
 	onMount(() => {
-		if (data.oidcEnabled) {
+		if (data.steamLoginFailed) {
+			error = 'Steam sign-in failed or this Steam account is not allowed. Please retry.';
+			return;
+		}
+		if (data.oidcEnabled && !data.steamLoginEnabled && !error) {
 			handleOidcLogin();
 		}
 	});
@@ -50,22 +68,28 @@
 				<Icon name="error" size={20} />
 				{error}
 			</div>
-
-			<div class="auth-actions">
-				<Button onclick={handleOidcLogin} variant="secondary" class="oidc-btn">Retry Login</Button>
-			</div>
-		{:else if data.oidcEnabled}
+		{/if}
+		{#if loading}
 			<div class="redirect-state animate-fade-in">
 				<Spinner />
-				<p class="redirect-text">
-					Redirecting to {data.oidcProviderName || 'OIDC provider'}...
-				</p>
+				<p class="redirect-text">Opening secure sign-in...</p>
 			</div>
-		{:else if !data.oidcEnabled}
+		{:else}
 			<div class="auth-actions">
-				<div class="anonymous-login animate-fade-in stagger-1">
-					<div class="loading-state">Redirecting to the dashboard...</div>
-				</div>
+				{#if data.oidcEnabled}
+					<Button onclick={handleOidcLogin} variant="secondary" class="oidc-btn"
+						>Sign in with {data.oidcProviderName || 'OIDC'}</Button
+					>
+				{/if}
+				{#if data.steamLoginEnabled}
+					<Button onclick={handleSteamLogin} variant="secondary" class="oidc-btn"
+						>Sign in through Steam</Button
+					>
+					<p class="redirect-text">
+						Your Steam password is entered only on Steam. Account boosting is connected separately
+						inside the panel.
+					</p>
+				{/if}
 			</div>
 		{/if}
 	</Card>
@@ -130,16 +154,5 @@
 		color: var(--text-muted);
 		font-size: 1rem;
 		font-weight: 400;
-	}
-
-	.anonymous-login {
-		text-align: center;
-		display: flex;
-		flex-direction: column;
-		gap: 16px;
-	}
-
-	.loading-state {
-		color: var(--text-muted);
 	}
 </style>

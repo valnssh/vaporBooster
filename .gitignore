@@ -1,7 +1,26 @@
 node_modules
+__pycache__/
+*.py[cod]
+.private/
+certs/
+backups/
+*.dump
+*.dump.*
+*.sql.gz
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+deploy/full-stack/compose.vm.yml
+deploy/full-stack/compose.fixture.yml
+vm-smoke.py
+fixture-smoke.py
 
 # Database
 *.db
+*.db-*
+*.sqlite*
 
 # Devenv
 .devenv*

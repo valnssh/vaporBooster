@@ -3,3 +3,6 @@ pnpm-lock.yaml
 
 # Miscellaneous
 /static/
+.private/
+certs/
+backups/

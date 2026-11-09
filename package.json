@@ -1,45 +1,69 @@
 {
 	"name": "vaporbooster",
 	"private": true,
-	"version": "0.0.1",
+	"version": "0.0.5",
 	"type": "module",
+	"imports": {
+		"#lib/*": "./src/lib/*"
+	},
+	"packageManager": "pnpm@10.10.0",
+	"pnpm": {
+		"patchedDependencies": {
+			"@deno/svelte-adapter@0.1.1": "patches/@deno__svelte-adapter@0.1.1.patch",
+			"steam-session@1.9.4": "patches/steam-session@1.9.4.patch",
+			"steam-user@5.3.0": "patches/steam-user@5.3.0.patch"
+		},
+		"overrides": {
+			"@esbuild-kit/core-utils>esbuild": "0.28.1",
+			"steam-appticket>protobufjs": "7.6.6",
+			"steam-user>adm-zip": "0.6.1"
+		},
+		"peerDependencyRules": {
+			"allowedVersions": {
+				"@deno/svelte-adapter>@sveltejs/kit": "3.1.1"
+			}
+		}
+	},
 	"scripts": {
-		"generate": "pnpm dlx @better-auth/cli generate --output ./src/lib/schema.ts --config ./src/lib/auth.ts",
-		"migrate": "pnpm exec drizzle-kit push",
+		"generate": "pnpm dlx auth@1.7.14 generate --output ./src/lib/schema.ts --config ./src/lib/auth.ts",
+		"migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "vite build && node scripts/postbuild.mjs",
 		"preview": "vite preview",
-		"start": "deno run -A --env-file=.env ./.deno-deploy/server.ts",
+		"start": "deno run --cached-only --no-prompt --allow-env --allow-net --allow-sys --allow-read=. --env-file=.env scripts/start.ts",
+		"test": "node --experimental-test-module-mocks --test tests/*.test.mjs",
+		"test:runtime": "node tests/runtime-smoke.mjs",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"format": "prettier --write .",
-		"lint": "prettier --check ."
+		"format": "prettier --write . \"!**/.private/**\" \"!**/certs/**\" \"!**/backups/**\"",
+		"lint": "prettier --check . \"!**/.private/**\" \"!**/certs/**\" \"!**/backups/**\""
 	},
 	"devDependencies": {
-		"@deno/svelte-adapter": "^0.1.1",
-		"@sveltejs/kit": "^2.57.1",
-		"@sveltejs/vite-plugin-svelte": "^7.0.0",
-		"@types/qrcode": "^1.5.6",
-		"drizzle-kit": "^0.31.10",
-		"prettier": "^3.8.3",
-		"prettier-plugin-svelte": "^3.5.1",
-		"svelte": "^5.55.4",
-		"svelte-check": "^4.4.6",
-		"typescript": "^6.0.3",
-		"vite": "^8.0.8",
-		"vite-plugin-devtools-json": "^1.0.0"
+		"@deno/svelte-adapter": "0.1.1",
+		"@sveltejs/kit": "3.1.1",
+		"@sveltejs/vite-plugin-svelte": "7.3.1",
+		"@types/qrcode": "1.5.6",
+		"drizzle-kit": "0.31.11",
+		"prettier": "3.9.10",
+		"prettier-plugin-svelte": "3.5.2",
+		"svelte": "5.57.3",
+		"svelte-check": "4.7.7",
+		"typescript": "6.0.3",
+		"vite": "8.3.5",
+		"vite-plugin-devtools-json": "1.1.2",
+		"@types/pg": "8.23.1"
 	},
 	"dependencies": {
-		"@libsql/client": "^0.17.2",
-		"@tailwindcss/vite": "^4.2.2",
-		"better-auth": "^1.6.5",
-		"drizzle-orm": "^0.45.2",
-		"jwt-decode": "^4.0.0",
-		"qrcode": "^1.5.4",
-		"steam-session": "^1.9.4",
-		"steam-totp": "^2.1.2",
-		"steam-user": "^5.3.0",
-		"tailwindcss": "^4.2.2"
+		"@tailwindcss/vite": "4.3.3",
+		"better-auth": "1.7.14",
+		"drizzle-orm": "0.45.4",
+		"jwt-decode": "4.0.0",
+		"qrcode": "1.5.4",
+		"steam-session": "1.9.4",
+		"steam-totp": "2.1.2",
+		"steam-user": "5.3.0",
+		"tailwindcss": "4.3.3",
+		"pg": "8.23.1"
 	}
 }

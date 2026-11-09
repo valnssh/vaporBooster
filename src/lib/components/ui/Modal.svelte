@@ -40,7 +40,7 @@
 	});
 
 	onDestroy(() => {
-		document.removeEventListener('keydown', handleKeydown);
+		if (typeof document !== 'undefined') document.removeEventListener('keydown', handleKeydown);
 	});
 
 	function handleBackdropClick(e: MouseEvent) {

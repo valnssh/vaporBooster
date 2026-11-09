@@ -1,0 +1,44 @@
+{
+	"realm": "hours",
+	"enabled": true,
+	"sslRequired": "all",
+	"registrationAllowed": false,
+	"resetPasswordAllowed": false,
+	"loginWithEmailAllowed": false,
+	"duplicateEmailsAllowed": false,
+	"bruteForceProtected": true,
+	"failureFactor": 5,
+	"eventsEnabled": false,
+	"eventsListeners": [],
+	"adminEventsEnabled": false,
+	"clients": [
+		{
+			"clientId": "hoursbooster",
+			"name": "HoursBooster",
+			"enabled": true,
+			"protocol": "openid-connect",
+			"publicClient": false,
+			"secret": "${OIDC_CLIENT_SECRET}",
+			"standardFlowEnabled": true,
+			"implicitFlowEnabled": false,
+			"directAccessGrantsEnabled": false,
+			"serviceAccountsEnabled": false,
+			"redirectUris": ["https://${HOURS_DOMAIN}/api/auth/callback/keycloak"],
+			"webOrigins": ["https://${HOURS_DOMAIN}"],
+			"defaultClientScopes": ["profile", "email"],
+			"attributes": { "pkce.code.challenge.method": "S256" }
+		}
+	],
+	"users": [
+		{
+			"username": "operator",
+			"enabled": true,
+			"email": "operator@users.invalid",
+			"emailVerified": true,
+			"firstName": "Operator",
+			"lastName": "User",
+			"requiredActions": [],
+			"credentials": [{ "type": "password", "value": "${INITIAL_PASSWORD}", "temporary": false }]
+		}
+	]
+}

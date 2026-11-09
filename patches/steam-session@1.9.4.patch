@@ -1,0 +1,76 @@
+--- a/dist/transports/WebSocketCMTransport.js
++++ b/dist/transports/WebSocketCMTransport.js
+@@ -29,6 +29,8 @@
+         this._localAddress = localAddress;
+         this._websocket = null;
+         this._jobs = {};
++        this._closed = false;
++        this._connectionWaiters = new Set();
+     }
+     async sendRequest(request) {
+         for (let tryCount = 1; tryCount <= 3; tryCount++) {
+@@ -45,12 +47,24 @@
+         }
+     }
+     close() {
+-        if (this._websocket && this._websocket.state == websocket13_1.State.Connected) {
++        this._closed = true;
++        const reason = new Error('Steam connection canceled');
++        for (const reject of this._connectionWaiters) reject(reason);
++        this._connectionWaiters.clear();
++        this._failAllPendingJobs(reason);
++        this._jobs = {};
++        if (this._websocket) {
+             this._websocket.disconnect();
+         }
+     }
+     _connectToCM() {
+-        return new Promise(async (resolve, reject) => {
++        if (this._closed) return Promise.reject(new Error('Steam connection canceled'));
++        let cancel;
++        const canceled = new Promise((resolve, reject) => {
++            cancel = reject;
++            this._connectionWaiters.add(cancel);
++        });
++        const attempt = new Promise(async (resolve, reject) => {
+             try {
+                 if (this._websocket && this._websocket.state == websocket13_1.State.Connecting) {
+                     // Just wait for the previous connection attempt to succeed
+@@ -70,6 +84,7 @@
+                 debug('_connectToCM()');
+                 let cmList = (await this._getCMList())
+                     .filter(cm => cm.type == 'websockets' && cm.realm == 'steamglobal');
++                if (this._closed) return;
+                 // Choose a CM at random
+                 let randUpperBound = Math.min(20, cmList.length);
+                 let cm = cmList[Math.floor(Math.random() * randUpperBound)];
+@@ -83,7 +98,7 @@
+                 });
+                 this._websocket.setTimeout(this._connectTimeout);
+                 this._websocket.on('timeout', () => {
+-                    if (resolved) {
++                    if (resolved || this._closed) {
+                         return;
+                     }
+                     debug(`Connecting to ${cm.endpoint} timed out after ${this._connectTimeout} ms`);
+@@ -92,6 +107,7 @@
+                     this._connectToCM().then(resolve).catch(reject);
+                 });
+                 this._websocket.on('connected', async () => {
++                    if (this._closed) return;
+                     this._websocket.setTimeout(0);
+                     debug(`Connected to ${cm.endpoint}`);
+                     let hello = { protocol_version: PROTOCOL_VERSION };
+@@ -122,10 +138,12 @@
+                 reject(ex);
+             }
+         });
++        return Promise.race([attempt, canceled]).finally(() => this._connectionWaiters.delete(cancel));
+     }
+     async _getCMList() {
+         let release = await g_CmListRetrievalSemaphore.waitAsync();
+         try {
++            if (this._closed) throw new Error('Steam connection canceled');
+             let cmList = g_CmListCache.get('cmlist');
+             if (cmList) {
+                 debug('Using cached CM list');

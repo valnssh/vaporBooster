@@ -1,0 +1,72 @@
+name: HTTPS and authentication
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - run: corepack enable && corepack prepare pnpm@10.10.0 --activate
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Start isolated TLS PostgreSQL for integration tests
+        run: sh tests/start-postgres.sh
+      - run: . .private/postgres-test/env && pnpm test && pnpm check && pnpm lint && pnpm build
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.9.8
+      - name: Verify built HTTPS application in Deno
+        run: . .private/postgres-test/env && pnpm test:runtime
+      - name: Remove disposable PostgreSQL test container
+        if: always()
+        run: docker rm -f -v hoursbooster-postgres-test || true
+  full-stack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Unit tests for private configuration and certificates
+        run: python3 -m unittest discover -s deploy/full-stack -p 'test_*.py'
+      - name: Prepare synthetic HTTPS stack
+        run: |
+          umask 077
+          mkdir -p .private/full-stack
+          cat > .private/full-stack/settings.env <<'EOF'
+          HOURS_DOMAIN=hours.test
+          AUTH_DOMAIN=auth.test
+          SERVER_IP=127.0.0.1
+          ACME_EMAIL=operator@example.invalid
+          STEAM_ALLOWED_IDS=76561198000000001
+          EOF
+          sudo python3 deploy/full-stack/setup.py --settings .private/full-stack/settings.env --test --prepare-only
+          echo '127.0.0.1 hours.test auth.test' | sudo tee -a /etc/hosts
+      - name: Build and start all services
+        run: |
+          dc() { sudo docker compose --project-name hoursbooster --env-file .private/full-stack/compose.env -f deploy/full-stack/compose.yml "$@"; }
+          dc up -d --build --wait --wait-timeout 120 postgres
+          dc up -d --build
+      - name: Verify real HTTPS and OIDC flow
+        run: sudo python3 tests/full-stack-smoke.py
+      - name: Diagnostics for synthetic stack
+        if: failure()
+        run: |
+          sudo docker compose --project-name hoursbooster --env-file .private/full-stack/compose.env -f deploy/full-stack/compose.yml exec -T vaporbooster deno eval --no-config 'const r=await fetch("https://auth.test/realms/hours/.well-known/openid-configuration"); console.log("OIDC discovery from app:", r.status); if(r.ok) console.log("Issuer:", (await r.json()).issuer);' || true
+          sudo docker compose --project-name hoursbooster --env-file .private/full-stack/compose.env -f deploy/full-stack/compose.yml ps -a
+          sudo docker compose --project-name hoursbooster --env-file .private/full-stack/compose.env -f deploy/full-stack/compose.yml logs --tail=60
+      - name: Stop synthetic services
+        if: always()
+        run: sudo docker compose --project-name hoursbooster --env-file .private/full-stack/compose.env -f deploy/full-stack/compose.yml down --volumes

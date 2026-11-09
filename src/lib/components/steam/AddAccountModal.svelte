@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { deserialize, enhance } from '$app/forms';
-	import Modal from '$lib/components/ui/Modal.svelte';
-	import Button from '$lib/components/ui/Button.svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Modal from '#lib/components/ui/Modal.svelte';
+	import Button from '#lib/components/ui/Button.svelte';
+	import Spinner from '#lib/components/ui/Spinner.svelte';
 	import QRCode from 'qrcode';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
@@ -34,10 +34,20 @@
 		return () => {
 			mounted = false;
 			polling = false;
+			cancelQr(sessionId);
 		};
 	});
 
+	function cancelQr(id: string) {
+		if (!id) return;
+		const form = new FormData();
+		form.set('sessionId', id);
+		void fetch('?/cancelQrLogin', { method: 'POST', body: form, keepalive: true }).catch(() => {});
+	}
+
 	async function startQr() {
+		cancelQr(sessionId);
+		sessionId = '';
 		qrError = '';
 		qrLoading = true;
 		qrUrl = '';
@@ -54,6 +64,10 @@
 			if (result.type === 'success' && result.data) {
 				qrUrl = result.data.qrUrl as string;
 				sessionId = result.data.sessionId as string;
+				if (!mounted) {
+					cancelQr(sessionId);
+					return;
+				}
 				//console.log('QR URL received:', qrUrl);
 				poll();
 			} else if (result.type === 'failure') {
@@ -71,34 +85,45 @@
 
 	async function poll() {
 		polling = true;
-		while (polling && mounted) {
-			const formData = new FormData();
-			formData.append('sessionId', sessionId);
+		try {
+			while (polling && mounted) {
+				const formData = new FormData();
+				formData.append('sessionId', sessionId);
 
-			const response = await fetch('?/pollQrLogin', {
-				method: 'POST',
-				body: formData
-			});
+				const response = await fetch('?/pollQrLogin', {
+					method: 'POST',
+					body: formData
+				});
 
-			const result = deserialize(await response.text());
+				const result = deserialize(await response.text());
+				if (!mounted) return;
 
-			if (result.type === 'success') {
-				if (result.data?.pending) {
-				} else if (result.data?.success) {
-					polling = false;
-					await invalidateAll();
-					onClose();
-					return;
-				}
-			} else if (result.type === 'failure') {
-				if (result.status === 408) {
-					await startQr();
-					return;
+				if (result.type === 'success') {
+					if (result.data?.pending) {
+					} else if (result.data?.success) {
+						polling = false;
+						sessionId = '';
+						await invalidateAll();
+						onClose();
+						return;
+					}
+				} else if (result.type === 'failure') {
+					if (result.status === 408) {
+						await startQr();
+						return;
+					} else {
+						polling = false;
+						qrError = 'QR login failed. Please retry.';
+					}
 				} else {
 					polling = false;
+					qrError = 'QR login expired or unavailable. Please retry.';
 				}
+				await new Promise((r) => setTimeout(r, 500));
 			}
-			await new Promise((r) => setTimeout(r, 500));
+		} catch {
+			polling = false;
+			qrError = 'Connection error. Please retry.';
 		}
 	}
 </script>

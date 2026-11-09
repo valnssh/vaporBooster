@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { slide } from 'svelte/transition';
-	import Modal from '$lib/components/ui/Modal.svelte';
-	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
-	import Icon from '$lib/components/icons/Icon.svelte';
+	import Modal from '#lib/components/ui/Modal.svelte';
+	import ConfirmModal from '#lib/components/ui/ConfirmModal.svelte';
+	import Icon from '#lib/components/icons/Icon.svelte';
 
 	let { account, messages = [], onClose } = $props();
 
@@ -59,11 +59,6 @@
 		const date = typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp);
 		return date.toLocaleString();
 	};
-
-	function openSteamDB(steamIdOther: string) {
-		window.open(`https://steamdb.info/calculator/${steamIdOther}/`, '_blank');
-		openMenu = null;
-	}
 
 	function requestDeleteChat(contact: { steamIdOther: string; name: string }) {
 		contactToDelete = contact;
@@ -123,7 +118,6 @@
 				</button>
 				{#if openMenu === selectedContact}
 					<div class="dropdown-menu" transition:slide={{ duration: 150 }}>
-						<button onclick={() => openSteamDB(selectedContact!)}>Open SteamDB</button>
 						<button
 							class="danger"
 							onclick={() =>
@@ -197,7 +191,7 @@
 {#if contactToDelete}
 	<ConfirmModal
 		title="Delete Chat"
-		message="Are you sure you want to delete all messages with <strong>{contactToDelete.name}</strong>? <br/> This cannot be undone."
+		message="Are you sure you want to delete all messages with {contactToDelete.name}? This cannot be undone."
 		confirmText="Delete"
 		variant="danger"
 		onConfirm={confirmDeleteChat}

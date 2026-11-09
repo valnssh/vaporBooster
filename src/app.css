@@ -139,7 +139,7 @@ body {
 	);
 	background-attachment: fixed;
 	color: var(--text-primary);
-	font-family: 'Space Grotesk', system-ui, sans-serif;
+	font-family: system-ui, sans-serif;
 	min-height: 100vh;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;

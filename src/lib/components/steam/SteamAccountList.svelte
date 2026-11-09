@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import Icon from '$lib/components/icons/Icon.svelte';
-	import type { SteamAccount } from '$lib/types';
+	import Icon from '#lib/components/icons/Icon.svelte';
+	import type { SteamAccount } from '#lib/types.ts';
 
 	interface Props {
 		accounts: SteamAccount[];

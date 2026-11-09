@@ -16,10 +16,6 @@ export type SteamAccountStatus =
 export interface SteamAccount {
 	id: string;
 	accountName: string;
-	refreshToken?: string | null;
-	iv?: string | null;
-	authTag?: string | null;
-	sharedSecret?: string | null;
 	customTitle?: string | null;
 	personaState?: number | null;
 	autoReplyMessage?: string | null;
